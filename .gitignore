@@ -1,4 +1,14 @@
 node_modules/
 dist/
+test-results/
+playwright-report/
 .DS_Store
 *.log
+*.tsbuildinfo
+# tsc -b composite build artifacts (root-level *.config.ts and src/*.ts have no hand-authored JS)
+*.config.js
+*.config.d.ts
+src/manifest.js
+src/manifest.d.ts
+src/**/*.js
+src/**/*.d.ts
