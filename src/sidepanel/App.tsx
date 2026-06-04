@@ -11,6 +11,9 @@ export function App() {
   const portRef = useRef<chrome.runtime.Port | null>(null);
 
   useEffect(() => {
+    // `cancelled` 는 cleanup 이후 async .then() 이 실행되는 것을 막는다.
+    // React 18 StrictMode 에선 dev 에서 effect/cleanup 가 두 번 도는데,
+    // 이 플래그가 첫 .then() 해석을 no-op 으로 만든다.
     let cancelled = false;
     let port: chrome.runtime.Port | undefined;
 
@@ -21,6 +24,11 @@ export function App() {
       portRef.current = port;
       port.onMessage.addListener((msg: PortMessage) => {
         if (msg.type === 'STATE_UPDATE') setState(msg.state);
+      });
+      port.onDisconnect.addListener(() => {
+        // 서비스 워커가 종료/재시작되면 포트가 끊긴다 → 연결 끊김을 정직하게 표시
+        portRef.current = null;
+        setState(null);
       });
       port.postMessage({ type: 'SUBSCRIBE', tabId: tab.id } satisfies PortMessage);
     });
