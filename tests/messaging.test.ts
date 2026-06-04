@@ -17,6 +17,8 @@ describe('envelope guards', () => {
     expect(isInjectEnvelope({ source: 'other' })).toBe(false);
     expect(isInjectEnvelope(null)).toBe(false);
     expect(isInjectEnvelope('x')).toBe(false);
+    expect(isInjectEnvelope({ source: INJECT_SOURCE })).toBe(false); // missing payload
+    expect(isInjectEnvelope({ source: INJECT_SOURCE, payload: null })).toBe(false); // null payload
   });
 
   it('distinguishes a cmd envelope from an inject envelope', () => {
