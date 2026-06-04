@@ -6,13 +6,22 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 
 // tabId → 연결된 패널 Port 집합
 const panelPorts = new Map<TabId, Set<chrome.runtime.Port>>();
+// tabId → 발신했지만 아직 응답받지 못한 PING nonce (상관관계 검증용)
+const pendingNonces = new Map<TabId, string>();
 
 function pushState(tabId: TabId): void {
   const ports = panelPorts.get(tabId);
   if (!ports || ports.size === 0) return;
   const state = getTabState(tabId);
   const msg: PortMessage = { type: 'STATE_UPDATE', state };
-  for (const port of ports) port.postMessage(msg);
+  for (const port of ports) {
+    try {
+      port.postMessage(msg);
+    } catch {
+      // 이미 끊긴 포트 — 집합에서 제거
+      ports.delete(port);
+    }
+  }
 }
 
 function nonce(): string {
@@ -28,10 +37,16 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       updateTabState(tabId, { injectReady: true, url: sender.tab?.url ?? null });
       pushState(tabId);
       break;
-    case 'PING_REPLY':
-      updateTabState(tabId, { lastPingNonce: msg.nonce });
-      pushState(tabId);
+    case 'PING_REPLY': {
+      // 우리가 보낸 nonce 와 일치하는 응답만 수용 (stale/위조 응답 무시)
+      const pending = pendingNonces.get(tabId);
+      if (pending != null && msg.nonce === pending) {
+        pendingNonces.delete(tabId);
+        updateTabState(tabId, { lastPingNonce: msg.nonce });
+        pushState(tabId);
+      }
       break;
+    }
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -53,6 +68,7 @@ chrome.runtime.onConnect.addListener((port) => {
       port.postMessage({ type: 'STATE_UPDATE', state: getTabState(msg.tabId) } satisfies PortMessage);
     } else if (msg.type === 'PING') {
       const n = nonce();
+      pendingNonces.set(msg.tabId, n);
       updateTabState(msg.tabId, { lastPingNonce: null });
       const cmd: RuntimeMessage = { type: 'PING', nonce: n };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
@@ -68,9 +84,14 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.status === 'loading' && info.url) {
     clearTabState(tabId);
+    pendingNonces.delete(tabId);
     updateTabState(tabId, { url: info.url });
     pushState(tabId);
   }
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => clearTabState(tabId));
+chrome.tabs.onRemoved.addListener((tabId) => {
+  clearTabState(tabId);
+  pendingNonces.delete(tabId);
+  panelPorts.delete(tabId);
+});
