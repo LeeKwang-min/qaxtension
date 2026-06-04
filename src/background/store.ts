@@ -12,6 +12,7 @@ function createDefault(tabId: TabId): TabSessionState {
   };
 }
 
+/** Returns the stored state object directly; do not mutate it — use updateTabState. */
 export function getTabState(tabId: TabId): TabSessionState {
   let s = tabs.get(tabId);
   if (!s) {
@@ -23,7 +24,7 @@ export function getTabState(tabId: TabId): TabSessionState {
 
 export function updateTabState(
   tabId: TabId,
-  patch: Partial<Omit<TabSessionState, 'tabId'>>,
+  patch: Partial<Omit<TabSessionState, 'tabId' | 'updatedAt'>>,
 ): TabSessionState {
   const current = getTabState(tabId);
   const next: TabSessionState = { ...current, ...patch, tabId, updatedAt: Date.now() };

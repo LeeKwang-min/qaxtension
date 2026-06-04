@@ -25,4 +25,10 @@ describe('tab session store', () => {
     clearTabState(1);
     expect(getTabState(1).injectReady).toBe(false);
   });
+
+  it('refreshes updatedAt on update', () => {
+    const before = getTabState(1).updatedAt;
+    updateTabState(1, { injectReady: true });
+    expect(getTabState(1).updatedAt).toBeGreaterThanOrEqual(before);
+  });
 });
