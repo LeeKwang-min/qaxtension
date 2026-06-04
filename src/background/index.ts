@@ -82,9 +82,15 @@ chrome.runtime.onConnect.addListener((port) => {
 
 // 네비게이션/리로드 시 상태 초기화
 chrome.tabs.onUpdated.addListener((tabId, info) => {
-  if (info.status === 'loading' && info.url) {
+  // 'loading' 진입 시 url 유무와 무관하게 상태를 초기화한다.
+  // (Chrome 은 url 변경과 status 전이를 별도 이벤트로 보낼 수 있다)
+  if (info.status === 'loading') {
     clearTabState(tabId);
     pendingNonces.delete(tabId);
+    if (info.url) updateTabState(tabId, { url: info.url });
+    pushState(tabId);
+  } else if (info.url) {
+    // status 전이 없이 url 만 갱신되는 경우 (예: history.pushState 동반 네비)
     updateTabState(tabId, { url: info.url });
     pushState(tabId);
   }
