@@ -3,8 +3,9 @@ dist/
 .DS_Store
 *.log
 *.tsbuildinfo
-vite.config.js
-vite.config.d.ts
+# tsc -b composite build artifacts (root-level *.config.ts and src/*.ts have no hand-authored JS)
+*.config.js
+*.config.d.ts
 src/manifest.js
 src/manifest.d.ts
 src/**/*.js
