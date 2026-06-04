@@ -22,6 +22,10 @@ test.afterAll(async () => {
   await context?.close();
 });
 
+// 알려진 한계(Phase 0): inject(MAIN)와 content(ISOLATED)는 CRXJS async 로더로 주입된다.
+// inject 의 INJECT_READY postMessage 가 content 의 message 리스너 등록보다 먼저 실행되면
+// 메시지가 유실될 수 있다(재발신 없음). 로컬에선 content 로더가 더 빨리 resolve 되어 통과하지만
+// 순서가 보장되진 않는다. 후속 Phase 에서 inject 재발신 또는 핸드셰이크로 강건화할 것.
 test('inject(MAIN) and content(ISOLATED) pipeline runs on a real page', async () => {
   const page = await context.newPage();
   await page.goto('https://example.com');
