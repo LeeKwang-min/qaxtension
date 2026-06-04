@@ -7,3 +7,5 @@ vite.config.js
 vite.config.d.ts
 src/manifest.js
 src/manifest.d.ts
+src/**/*.js
+src/**/*.d.ts
