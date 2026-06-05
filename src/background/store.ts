@@ -11,6 +11,7 @@ function createDefault(tabId: TabId): TabSessionState {
     picking: false,
     pickedElement: null,
     requests: [],
+    logs: [],
     updatedAt: Date.now(),
   };
 }

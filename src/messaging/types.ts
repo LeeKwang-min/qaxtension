@@ -87,6 +87,39 @@ export interface TreemapCell {
   bytes: number;
 }
 
+/** 로그 레벨 (v1 은 문제 신호인 error/warn 만 수집) */
+export type LogLevel = 'error' | 'warn';
+
+/** 로그 출처 */
+export type LogSource = 'console' | 'onerror' | 'unhandledrejection';
+
+/** inject 가 발신하는 로그 이벤트 (인자는 inject 에서 문자열로 직렬화 완료) */
+export interface LogEvent {
+  level: LogLevel;
+  source: LogSource;
+  /** 직렬화된 메시지 텍스트 */
+  text: string;
+  /** 스택 트레이스 (없으면 null) */
+  stack: string | null;
+  /** onerror 의 filename:line:col 등 위치 (없으면 null) */
+  location: string | null;
+  at: number; // epoch ms
+}
+
+/** 정규화된 로그 레코드 (store/패널 표시 단위) */
+export interface LogRecord {
+  id: string;
+  level: LogLevel;
+  source: LogSource;
+  text: string;
+  stack: string | null;
+  location: string | null;
+  /** 연속 동일 로그 병합 횟수 (1 이상) */
+  count: number;
+  firstAt: number;
+  lastAt: number;
+}
+
 /** 색상 한 항목 — 스와치/표시용 */
 export interface ColorInfo {
   /** 원본 computed 값 (예: 'rgb(255, 0, 0)') */
@@ -143,7 +176,8 @@ export interface InjectEnvelope {
     | { type: 'INJECT_READY' }
     | { type: 'PING_REPLY'; nonce: string }
     | { type: 'NET_START'; record: NetStart }
-    | { type: 'NET_END'; id: string; end: NetEnd };
+    | { type: 'NET_END'; id: string; end: NetEnd }
+    | { type: 'LOG'; event: LogEvent };
 }
 
 /** ISOLATED(content) → MAIN world(inject) 로 가는 명령 봉투 */
@@ -169,7 +203,9 @@ export type RuntimeMessage =
   | { type: 'PICK_CANCELLED' }
   // content → background: 네트워크 캡처 중계
   | { type: 'NET_START'; record: NetStart }
-  | { type: 'NET_END'; id: string; end: NetEnd };
+  | { type: 'NET_END'; id: string; end: NetEnd }
+  // content → background: 콘솔/에러 로그 중계
+  | { type: 'LOG'; event: LogEvent };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -180,6 +216,7 @@ export interface TabSessionState {
   picking: boolean;
   pickedElement: ElementInfo | null;
   requests: RequestRecord[];
+  logs: LogRecord[];
   updatedAt: number;
 }
 
@@ -192,4 +229,6 @@ export type PortMessage =
   | { type: 'PICK_STOP'; tabId: TabId }
   // 패널 → background: 네트워크 기록 초기화
   | { type: 'NETWORK_CLEAR'; tabId: TabId }
+  // 패널 → background: 콘솔 로그 초기화
+  | { type: 'CONSOLE_CLEAR'; tabId: TabId }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
