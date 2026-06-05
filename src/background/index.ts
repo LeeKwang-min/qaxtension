@@ -1,6 +1,7 @@
 import { getTabState, updateTabState, clearTabState } from './store';
 import type { RuntimeMessage, PortMessage, TabId, WebReqEnd } from '../messaging/types';
 import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/network';
+import { recordFromLog, pushLog } from '../capture/console';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -9,6 +10,8 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 const panelPorts = new Map<TabId, Set<chrome.runtime.Port>>();
 // tabId → 발신했지만 아직 응답받지 못한 PING nonce (상관관계 검증용)
 const pendingNonces = new Map<TabId, string>();
+// 로그 레코드 id 단조 증가 시퀀스
+let logSeq = 0;
 
 function pushState(tabId: TabId): void {
   const ports = panelPorts.get(tabId);
@@ -77,6 +80,14 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       pushState(tabId);
       break;
     }
+    case 'LOG': {
+      const state = getTabState(tabId);
+      logSeq += 1;
+      const rec = recordFromLog(msg.event, `log-${tabId}-${logSeq}`);
+      updateTabState(tabId, { logs: pushLog(state.logs, rec) });
+      pushState(tabId);
+      break;
+    }
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -123,6 +134,9 @@ chrome.runtime.onConnect.addListener((port) => {
       pushState(msg.tabId);
     } else if (msg.type === 'NETWORK_CLEAR') {
       updateTabState(msg.tabId, { requests: [] });
+      pushState(msg.tabId);
+    } else if (msg.type === 'CONSOLE_CLEAR') {
+      updateTabState(msg.tabId, { logs: [] });
       pushState(msg.tabId);
     }
   });

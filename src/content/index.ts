@@ -81,6 +81,11 @@ window.addEventListener('message', (ev: MessageEvent) => {
     void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });
+  } else if (payload.type === 'LOG') {
+    const msg: RuntimeMessage = { type: 'LOG', event: payload.event };
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   }
 });
 
