@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PortMessage, TabSessionState, TabId } from '../messaging/types';
+import { InspectPanel } from './InspectPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -46,6 +47,12 @@ export function App() {
     }
   };
 
+  const togglePick = () => {
+    if (!portRef.current || tabId == null) return;
+    const type = state?.picking ? 'PICK_STOP' : 'PICK_START';
+    portRef.current.postMessage({ type, tabId } satisfies PortMessage);
+  };
+
   return (
     <div style={{ font: '13px system-ui', padding: 12 }}>
       <header style={{ marginBottom: 12 }}>
@@ -82,7 +89,15 @@ export function App() {
       </nav>
 
       <main>
-        <p style={{ color: '#999' }}>{active} 패널 — Phase 0 셸 (기능은 이후 Phase에서 구현)</p>
+        {active === '검사' ? (
+          <InspectPanel
+            picking={state?.picking ?? false}
+            picked={state?.pickedElement ?? null}
+            onTogglePick={togglePick}
+          />
+        ) : (
+          <p style={{ color: '#999' }}>{active} 패널 — 이후 Phase에서 구현</p>
+        )}
       </main>
     </div>
   );
