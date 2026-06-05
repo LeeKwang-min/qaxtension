@@ -1,4 +1,5 @@
 import type { InteractionEvent, Step } from '../messaging/types';
+import { cssPath } from '../inspect/element-info';
 
 /** tabId별 보관 스텝 상한 (메모리 보호) */
 export const MAX_STEPS = 500;
@@ -77,4 +78,110 @@ export function buildStepsSection(steps: Step[]): string {
   if (steps.length === 0) return '## 재현 절차\n\n_기록된 행동 없음_';
   const items = steps.map((s, i) => `${i + 1}. ${describeStep(s)}`);
   return ['## 재현 절차', '', ...items].join('\n');
+}
+
+// ── DOM 추출 (content 가 실제 이벤트 요소로 호출, jsdom 단위 테스트) ─────
+
+/** 라벨 텍스트 정규화 (공백 접고 절단) */
+function cleanLabel(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const t = s.replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  return t.length > MAX_VALUE ? `${t.slice(0, MAX_VALUE)}…` : t;
+}
+
+function isField(el: Element): el is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+  const tag = el.tagName.toLowerCase();
+  return tag === 'input' || tag === 'select' || tag === 'textarea';
+}
+
+/** 폼 필드의 연결 라벨 (aria-label → 연결 label → placeholder → name) */
+function fieldLabel(el: Element): string | null {
+  const aria = cleanLabel(el.getAttribute('aria-label'));
+  if (aria) return aria;
+  // HTMLInputElement.labels 는 label[for] 와 감싼 label 을 모두 포함
+  const labels = (el as HTMLInputElement).labels;
+  if (labels && labels.length > 0) {
+    const t = cleanLabel(labels[0].textContent);
+    if (t) return t;
+  }
+  const ph = cleanLabel(el.getAttribute('placeholder'));
+  if (ph) return ph;
+  return cleanLabel(el.getAttribute('name'));
+}
+
+/** 클릭형 요소의 라벨 (텍스트 → aria-label → title → value) */
+function clickableLabel(el: Element): string | null {
+  const aria = cleanLabel(el.getAttribute('aria-label'));
+  if (aria) return aria;
+  const text = cleanLabel(el.textContent);
+  if (text) return text;
+  const title = cleanLabel(el.getAttribute('title'));
+  if (title) return title;
+  return cleanLabel(el.getAttribute('value'));
+}
+
+/** 요소의 사람이 읽는 라벨 (폼 필드/클릭형 구분, 없으면 null) */
+export function labelOf(el: Element): string | null {
+  return isField(el) ? fieldLabel(el) : clickableLabel(el);
+}
+
+/** input 의 입력 타입 분류 */
+function inputKind(el: Element): 'text' | 'check' | 'select' | 'ignore' {
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'textarea') return 'text';
+  if (tag === 'select') return 'select';
+  if (tag === 'input') {
+    const type = (el.getAttribute('type') ?? 'text').toLowerCase();
+    if (type === 'checkbox' || type === 'radio') return 'check';
+    // 버튼류는 click 으로 다룬다
+    if (type === 'submit' || type === 'button' || type === 'reset' || type === 'image') return 'ignore';
+    return 'text';
+  }
+  return 'ignore';
+}
+
+/** 클릭으로 기록할 컨트롤 (텍스트 입력·체크박스는 제외 — change 가 담당) */
+const CLICK_SELECTOR =
+  'button, a[href], [role="button"], input[type="submit"], input[type="button"]';
+
+/**
+ * 클릭 이벤트 대상 → InteractionEvent. 클릭형 컨트롤(또는 그 안쪽)이 아니면 null.
+ * 텍스트 입력/체크박스/라디오 클릭은 change 핸들러가 담당하므로 무시한다.
+ */
+export function interactionFromClick(el: Element, now: number): InteractionEvent | null {
+  const clickable = el.closest(CLICK_SELECTOR);
+  if (!clickable) return null;
+  return {
+    kind: 'click',
+    selector: cssPath(clickable),
+    label: labelOf(clickable),
+    value: null,
+    at: now,
+  };
+}
+
+/**
+ * change 이벤트 대상(입력/선택/체크) → InteractionEvent. 폼 필드가 아니면 null.
+ * password 값은 마스킹, select 는 선택된 옵션 텍스트, checkbox/radio 는 on/off.
+ */
+export function interactionFromChange(el: Element, now: number): InteractionEvent | null {
+  const kind = inputKind(el);
+  if (kind === 'ignore') return null;
+  const selector = cssPath(el);
+  const label = labelOf(el);
+  if (kind === 'check') {
+    const checked = (el as HTMLInputElement).checked;
+    return { kind: 'check', selector, label, value: checked ? 'on' : 'off', at: now };
+  }
+  if (kind === 'select') {
+    const sel = el as HTMLSelectElement;
+    const opt = sel.selectedOptions?.[0] ?? sel.options[sel.selectedIndex];
+    const text = cleanLabel(opt?.textContent) ?? cleanLabel(sel.value) ?? '';
+    return { kind: 'select', selector, label, value: text, at: now };
+  }
+  // text / textarea
+  const field = el as HTMLInputElement | HTMLTextAreaElement;
+  const isPassword = el.tagName.toLowerCase() === 'input' && (el.getAttribute('type') ?? '').toLowerCase() === 'password';
+  return { kind: 'input', selector, label, value: maskValue(field.value ?? '', isPassword), at: now };
 }
