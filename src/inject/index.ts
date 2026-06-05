@@ -1,5 +1,6 @@
 import { INJECT_SOURCE, isCmdEnvelope } from '../messaging';
-import type { InjectEnvelope } from '../messaging/types';
+import type { InjectEnvelope, NetStart, NetEnd } from '../messaging/types';
+import { captureBody } from '../capture/network';
 
 type InjectWindow = Window & { __qaxtensionInjectReady?: boolean };
 const w = window as InjectWindow;
@@ -19,6 +20,204 @@ if (!w.__qaxtensionInjectReady) {
 
   // 준비 신호 발신
   post({ type: 'INJECT_READY' });
+
+  // ── 네트워크 캡처 (fetch / XHR) ───────────────────────────
+  // 모든 후킹은 try/catch 로 감싸 페이지를 절대 깨뜨리지 않는다(fail-open).
+  let netSeq = 0;
+  const nextNetId = (): string => {
+    netSeq += 1;
+    return `net-${Date.now().toString(36)}-${netSeq}`;
+  };
+  const postStart = (record: NetStart): void => post({ type: 'NET_START', record });
+  const postEnd = (id: string, end: NetEnd): void => post({ type: 'NET_END', id, end });
+
+  // fetch 후킹 — 원본 보존
+  try {
+    const origFetch = window.fetch;
+    if (typeof origFetch === 'function') {
+      window.fetch = function (
+        this: typeof window,
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> {
+        const id = nextNetId();
+        const startedAt = Date.now();
+        let method = 'GET';
+        let url = '';
+        let requestBody = null as ReturnType<typeof captureBody>;
+        try {
+          if (input instanceof Request) {
+            method = (init?.method ?? input.method ?? 'GET').toUpperCase();
+            url = input.url;
+          } else {
+            method = (init?.method ?? 'GET').toUpperCase();
+            url = String(input);
+          }
+          const body = init?.body;
+          if (typeof body === 'string') requestBody = captureBody(body, null);
+        } catch {
+          /* fail-open: 메타 추출 실패해도 호출은 진행 */
+        }
+        try {
+          postStart({ id, source: 'fetch', method, url, startedAt, requestBody });
+        } catch {
+          /* 발신 실패 무시 */
+        }
+        let p: Promise<Response>;
+        try {
+          p = origFetch.call(this, input as RequestInfo, init);
+        } catch (e) {
+          try {
+            postEnd(id, { error: String(e), durationMs: Date.now() - startedAt });
+          } catch {
+            /* 무시 */
+          }
+          throw e;
+        }
+        return p.then(
+          (response) => {
+            // 응답 본문은 clone 으로 읽어 원본 스트림을 소비하지 않는다.
+            try {
+              const ct = response.headers.get('content-type');
+              response
+                .clone()
+                .text()
+                .then((text) => {
+                  try {
+                    postEnd(id, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      ok: response.ok,
+                      durationMs: Date.now() - startedAt,
+                      responseBody: captureBody(text, ct),
+                    });
+                  } catch {
+                    /* 무시 */
+                  }
+                })
+                .catch(() => {
+                  // 본문 못 읽어도 상태/타이밍은 보낸다
+                  try {
+                    postEnd(id, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      ok: response.ok,
+                      durationMs: Date.now() - startedAt,
+                      responseBody: null,
+                    });
+                  } catch {
+                    /* 무시 */
+                  }
+                });
+            } catch {
+              /* 무시 */
+            }
+            return response;
+          },
+          (err) => {
+            try {
+              postEnd(id, { error: String(err), durationMs: Date.now() - startedAt });
+            } catch {
+              /* 무시 */
+            }
+            throw err;
+          },
+        );
+      } as typeof window.fetch;
+    }
+  } catch {
+    /* fetch 후킹 실패 — 페이지 영향 없음 */
+  }
+
+  // XHR 후킹 — open/send 오버라이드
+  try {
+    interface QaxXhr extends XMLHttpRequest {
+      __qaxNet?: { id: string; method: string; url: string; startedAt: number };
+    }
+    const proto = XMLHttpRequest.prototype;
+    const origOpen = proto.open;
+    const origSend = proto.send;
+
+    proto.open = function (
+      this: QaxXhr,
+      method: string,
+      url: string | URL,
+      ...rest: unknown[]
+    ): void {
+      try {
+        this.__qaxNet = {
+          id: nextNetId(),
+          method: String(method).toUpperCase(),
+          url: String(url),
+          startedAt: 0,
+        };
+      } catch {
+        /* 무시 */
+      }
+      // 가변 인자 시그니처를 보존해 그대로 전달
+      return (origOpen as (...a: unknown[]) => void).call(this, method, url, ...rest);
+    } as typeof proto.open;
+
+    proto.send = function (this: QaxXhr, body?: Document | XMLHttpRequestBodyInit | null): void {
+      const meta = this.__qaxNet;
+      if (meta) {
+        meta.startedAt = Date.now();
+        let requestBody = null as ReturnType<typeof captureBody>;
+        try {
+          if (typeof body === 'string') requestBody = captureBody(body, null);
+        } catch {
+          /* 무시 */
+        }
+        try {
+          postStart({
+            id: meta.id,
+            source: 'xhr',
+            method: meta.method,
+            url: meta.url,
+            startedAt: meta.startedAt,
+            requestBody,
+          });
+        } catch {
+          /* 무시 */
+        }
+        try {
+          this.addEventListener('loadend', () => {
+            try {
+              const status = this.status;
+              const durationMs = Date.now() - meta.startedAt;
+              if (status === 0) {
+                // status 0 = 네트워크 오류 또는 CORS 차단
+                postEnd(meta.id, { error: 'network error or CORS', durationMs });
+                return;
+              }
+              let responseBody = null as ReturnType<typeof captureBody>;
+              try {
+                if (this.responseType === '' || this.responseType === 'text') {
+                  responseBody = captureBody(this.responseText, this.getResponseHeader('content-type'));
+                }
+              } catch {
+                /* 본문 못 읽어도 상태는 보냄 */
+              }
+              postEnd(meta.id, {
+                status,
+                statusText: this.statusText,
+                ok: status >= 200 && status < 400,
+                durationMs,
+                responseBody,
+              });
+            } catch {
+              /* 무시 */
+            }
+          });
+        } catch {
+          /* 무시 */
+        }
+      }
+      return (origSend as (b?: Document | XMLHttpRequestBodyInit | null) => void).call(this, body);
+    } as typeof proto.send;
+  } catch {
+    /* XHR 후킹 실패 — 페이지 영향 없음 */
+  }
 
   // content → inject 명령 수신 후 응답.
   // isCmdEnvelope 가드가 payload 존재까지 검증하므로 raw cast 의 throw 경로를 차단한다.
