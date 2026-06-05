@@ -34,6 +34,32 @@ describe('cssPath', () => {
     el.className = 'btn primary';
     expect(cssPath(el)).toBe('button.btn.primary');
   });
+  it('caps classes at 3 per level', () => {
+    const el = document.createElement('span');
+    el.className = 'a b c d';
+    expect(cssPath(el)).toBe('span.a.b.c');
+  });
+  it('terminates the chain at an ancestor id', () => {
+    const wrap = document.createElement('section');
+    wrap.id = 'main';
+    const child = document.createElement('p');
+    wrap.appendChild(child);
+    expect(cssPath(child)).toBe('#main > p');
+  });
+  it('limits depth to 4 levels', () => {
+    // 6단계 중첩 → 시작 요소 포함 최대 4단계만 (id 없음)
+    let root = document.createElement('div');
+    let cur = root;
+    for (const tag of ['section', 'article', 'ul', 'li', 'a']) {
+      const next = document.createElement(tag);
+      cur.appendChild(next);
+      cur = next;
+    }
+    // cur = <a>, 조상 체인: li > ul > article > section > div(root)
+    const path = cssPath(cur);
+    expect(path.split(' > ').length).toBe(4);
+    expect(path.endsWith('a')).toBe(true);
+  });
 });
 
 describe('buildElementInfo', () => {
@@ -77,5 +103,15 @@ describe('buildElementInfo', () => {
     expect(info.accessibility.alt).toBeNull();
     expect(info.accessibility.role).toBeNull();
     expect(info.accessibility.ariaLabel).toBeNull();
+  });
+  it('returns null text for empty or whitespace-only content', () => {
+    const el = document.createElement('div');
+    el.textContent = '   ';
+    expect(buildElementInfo(el, makeStyle()).text).toBeNull();
+  });
+  it('truncates long text to 80 chars', () => {
+    const el = document.createElement('p');
+    el.textContent = 'x'.repeat(100);
+    expect(buildElementInfo(el, makeStyle()).text).toHaveLength(80);
   });
 });
