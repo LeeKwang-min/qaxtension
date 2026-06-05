@@ -2,6 +2,7 @@ import { getTabState, updateTabState, clearTabState } from './store';
 import type { RuntimeMessage, PortMessage, TabId, WebReqEnd, AuditRaw, AuditResult, LinkCheck } from '../messaging/types';
 import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/network';
 import { recordFromLog, pushLog } from '../capture/console';
+import { stepFromEvent, pushStep } from '../capture/recorder';
 import { checkLinks } from '../audit/link-check';
 import { toStorageEntries, type CookieLike } from '../audit/storage';
 import { computeWindowSize } from '../audit/responsive';
@@ -15,6 +16,8 @@ const panelPorts = new Map<TabId, Set<chrome.runtime.Port>>();
 const pendingNonces = new Map<TabId, string>();
 // 로그 레코드 id 단조 증가 시퀀스
 let logSeq = 0;
+// 기록 스텝 id 단조 증가 시퀀스
+let stepSeq = 0;
 // 탭당 보관할 리소스 성능 항목 상한
 const MAX_PERF = 300;
 
@@ -35,6 +38,16 @@ function pushState(tabId: TabId): void {
 
 function nonce(): string {
   return Math.random().toString(36).slice(2);
+}
+
+/**
+ * 기록 중인 탭의 content 가 (재)주입돼 ready 가 되면 capture 리스너를 다시 무장한다.
+ * 네비게이션으로 content 가 새 페이지에서 다시 실행될 때 기록을 끊김 없이 이어준다.
+ */
+function rearmRecording(tabId: TabId): void {
+  if (!getTabState(tabId).recording) return;
+  const cmd: RuntimeMessage = { type: 'RECORD_START' };
+  chrome.tabs.sendMessage(tabId, cmd).catch(() => {});
 }
 
 /** 대상 탭의 윈도우에서 보이는 영역을 PNG dataURL 로 캡처 (실패 시 error 동봉) */
@@ -178,6 +191,8 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     case 'INJECT_READY':
       updateTabState(tabId, { injectReady: true, url: sender.tab?.url ?? null });
       pushState(tabId);
+      // 네비게이션 후 content 가 새로 떴으면 기록 리스너를 재무장
+      rearmRecording(tabId);
       break;
     case 'PING_REPLY': {
       // 우리가 보낸 nonce 와 일치하는 응답만 수용 (stale/위조 응답 무시)
@@ -233,6 +248,15 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       updateTabState(tabId, {
         perfResources: next.length > MAX_PERF ? next.slice(next.length - MAX_PERF) : next,
       });
+      pushState(tabId);
+      break;
+    }
+    case 'INTERACTION': {
+      const state = getTabState(tabId);
+      if (!state.recording) break; // 기록 중이 아니면 무시 (stale 리스너 방어)
+      stepSeq += 1;
+      const step = stepFromEvent(msg.event, `step-${tabId}-${stepSeq}`);
+      updateTabState(tabId, { steps: pushStep(state.steps, step) });
       pushState(tabId);
       break;
     }
@@ -315,6 +339,20 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'NETWORK_SET_PAUSED') {
       updateTabState(msg.tabId, { networkPaused: msg.paused });
       pushState(msg.tabId);
+    } else if (msg.type === 'RECORD_SET_ACTIVE') {
+      updateTabState(msg.tabId, { recording: msg.active });
+      pushState(msg.tabId);
+      const cmd: RuntimeMessage = { type: msg.active ? 'RECORD_START' : 'RECORD_STOP' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {
+        // content 가 없으면(미주입 페이지) 기록을 켤 수 없으므로 복구
+        if (msg.active) {
+          updateTabState(msg.tabId, { recording: false });
+          pushState(msg.tabId);
+        }
+      });
+    } else if (msg.type === 'RECORD_CLEAR') {
+      updateTabState(msg.tabId, { steps: [] });
+      pushState(msg.tabId);
     } else if (msg.type === 'CAPTURE_SCREENSHOT') {
       // 보이는 영역 캡처는 대상 탭의 윈도우에서 수행한다.
       // (host 권한 <all_urls> 로 충분 — 별도 권한 불필요)
@@ -364,9 +402,29 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   // 'loading' 진입 시 url 유무와 무관하게 상태를 초기화한다.
   // (Chrome 은 url 변경과 status 전이를 별도 이벤트로 보낼 수 있다)
   if (info.status === 'loading') {
+    // 기록 중이면 steps·recording 을 페이지를 건너 유지하고 navigate 스텝을 잇는다.
+    const prev = getTabState(tabId);
+    const wasRecording = prev.recording;
+    const keptSteps = prev.steps;
     clearTabState(tabId);
     pendingNonces.delete(tabId);
-    if (info.url) updateTabState(tabId, { url: info.url });
+    const url = info.url ?? prev.url;
+    if (wasRecording) {
+      const last = keptSteps[keptSteps.length - 1];
+      // 리다이렉트 등으로 같은 URL navigate 가 연달아 쌓이는 것 방지
+      let steps = keptSteps;
+      if (!(last && last.kind === 'navigate' && last.value === url)) {
+        stepSeq += 1;
+        const navStep = stepFromEvent(
+          { kind: 'navigate', selector: null, label: null, value: url, at: Date.now() },
+          `step-${tabId}-${stepSeq}`,
+        );
+        steps = pushStep(keptSteps, navStep);
+      }
+      updateTabState(tabId, { recording: true, steps, url });
+    } else if (info.url) {
+      updateTabState(tabId, { url: info.url });
+    }
     pushState(tabId);
   } else if (info.url) {
     // status 전이 없이 url 만 갱신되는 경우 (예: history.pushState 동반 네비)

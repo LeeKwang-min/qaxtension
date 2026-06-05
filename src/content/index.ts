@@ -7,7 +7,8 @@ import { auditA11y, type ContrastStyle } from '../audit/a11y';
 import { collectResources } from '../audit/links';
 import { domChildren, elementByPath } from '../inspect/dom-tree';
 import { createHighlighter } from '../inspect/highlighter';
-import type { AuditRaw, StorageItem } from '../messaging/types';
+import { interactionFromClick, interactionFromChange } from '../capture/recorder';
+import type { AuditRaw, InteractionEvent, StorageItem } from '../messaging/types';
 
 const highlighter = createHighlighter();
 
@@ -200,8 +201,59 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     const el = elementByPath(document.body, msg.path);
     if (el) highlighter.show(el);
     else highlighter.hide();
+  } else if (msg.type === 'RECORD_START') {
+    startRecording();
+  } else if (msg.type === 'RECORD_STOP') {
+    stopRecording();
   }
 });
+
+// ── 행동 기록 (capture-phase 리스너) ──────────────────────────
+// inject(MAIN) 가 아니라 content(ISOLATED) 에서 공유 DOM 에 직접 리스너를 단다.
+// capture 단계라 페이지가 stopPropagation 해도 포착하며, 호스트 동작엔 영향이 없다.
+let recording = false;
+
+function emitInteraction(ev: InteractionEvent | null): void {
+  if (!ev) return;
+  const msg: RuntimeMessage = { type: 'INTERACTION', event: ev };
+  void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+    console.debug('[qaxtension] content sendMessage failed:', e);
+  });
+}
+
+function onRecClick(e: Event): void {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  try {
+    emitInteraction(interactionFromClick(t, Date.now()));
+  } catch (err) {
+    console.debug('[qaxtension] record click failed:', err);
+  }
+}
+
+function onRecChange(e: Event): void {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  try {
+    emitInteraction(interactionFromChange(t, Date.now()));
+  } catch (err) {
+    console.debug('[qaxtension] record change failed:', err);
+  }
+}
+
+function startRecording(): void {
+  if (recording) return;
+  recording = true;
+  document.addEventListener('click', onRecClick, true);
+  document.addEventListener('change', onRecChange, true);
+}
+
+function stopRecording(): void {
+  if (!recording) return;
+  recording = false;
+  document.removeEventListener('click', onRecClick, true);
+  document.removeEventListener('change', onRecChange, true);
+}
 
 // ── 자동 검증 수집 (페이지 컨텍스트) ───────────────────────────
 function contrastStyleOf(el: Element): ContrastStyle {
