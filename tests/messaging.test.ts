@@ -27,4 +27,8 @@ describe('envelope guards', () => {
     ).toBe(true);
     expect(isCmdEnvelope({ source: INJECT_SOURCE, payload: { type: 'INJECT_READY' } })).toBe(false);
   });
+
+  it('accepts a RESYNC cmd envelope', () => {
+    expect(isCmdEnvelope({ source: CMD_SOURCE, payload: { type: 'RESYNC' } })).toBe(true);
+  });
 });

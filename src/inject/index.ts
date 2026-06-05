@@ -20,13 +20,17 @@ if (!w.__qaxtensionInjectReady) {
   // 준비 신호 발신
   post({ type: 'INJECT_READY' });
 
-  // content → inject 명령(PING) 수신 후 응답.
+  // content → inject 명령 수신 후 응답.
   // isCmdEnvelope 가드가 payload 존재까지 검증하므로 raw cast 의 throw 경로를 차단한다.
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
     if (!isCmdEnvelope(ev.data)) return;
-    if (ev.data.payload.type === 'PING') {
-      post({ type: 'PING_REPLY', nonce: ev.data.payload.nonce });
+    const payload = ev.data.payload;
+    if (payload.type === 'PING') {
+      post({ type: 'PING_REPLY', nonce: payload.nonce });
+    } else if (payload.type === 'RESYNC') {
+      // 늦게 진입한 소비자(패널/재시작된 SW)를 위해 readiness 를 재발신한다.
+      post({ type: 'INJECT_READY' });
     }
   });
 }
