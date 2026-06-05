@@ -9,6 +9,30 @@ import type {
 
 /** 표/리스트에 싣는 최대 행 수 (초과분은 "외 N건" 표기) */
 export const MAX_REPORT_ROWS = 50;
+
+/** 리포트 포함/제외 옵션 — 개발자가 노이즈를 빼고 핵심만 전달하도록 */
+export interface ReportOptions {
+  includeEnv: boolean;
+  includeElement: boolean;
+  includeFailedApi: boolean;
+  includeLogs: boolean;
+  includeScreenshot: boolean;
+  /** 리포트에서 뺄 실패 API id (개별 체크 해제) */
+  excludedRequestIds: string[];
+  /** 리포트에서 뺄 로그 id (개별 체크 해제) */
+  excludedLogIds: string[];
+}
+
+/** 기본: 모든 섹션 포함, 제외 없음 */
+export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
+  includeEnv: true,
+  includeElement: true,
+  includeFailedApi: true,
+  includeLogs: true,
+  includeScreenshot: true,
+  excludedRequestIds: [],
+  excludedLogIds: [],
+};
 /** 로그인 추정 값 절단 길이 (민감정보 보호) */
 export const MAX_LOGIN_VALUE = 80;
 
@@ -129,8 +153,8 @@ function elementSection(el: ReportInput['pickedElement']): string {
   return lines.join('\n');
 }
 
-function failedApiSection(requests: RequestRecord[]): string {
-  const failed = requests.filter(isFailed);
+function failedApiSection(requests: RequestRecord[], excludedIds: string[] = []): string {
+  const failed = requests.filter(isFailed).filter((r) => !excludedIds.includes(r.id));
   if (failed.length === 0) return '## 실패한 API (0건)\n\n_실패한 API 없음_';
   const shown = failed.slice(0, MAX_REPORT_ROWS);
   const rows = shown.map((r) => {
@@ -149,7 +173,8 @@ function failedApiSection(requests: RequestRecord[]): string {
   return lines.join('\n');
 }
 
-function logsSection(logs: LogRecord[]): string {
+function logsSection(allLogs: LogRecord[], excludedIds: string[] = []): string {
+  const logs = allLogs.filter((l) => !excludedIds.includes(l.id));
   if (logs.length === 0) return '## 최근 에러·경고 (0건)\n\n_수집된 에러·경고 없음_';
   const shown = logs.slice(0, MAX_REPORT_ROWS);
   const items = shown.map((l) => {
@@ -168,28 +193,31 @@ function screenshotSection(screenshot: string | null): string {
     : '## 스크린샷\n\n_스크린샷 없음_';
 }
 
-/** 세션 스냅샷 → 마크다운 버그 리포트 */
-export function buildMarkdown(input: ReportInput): string {
+/** 세션 스냅샷 → 마크다운 버그 리포트 (옵션으로 섹션/항목 포함·제외) */
+export function buildMarkdown(input: ReportInput, options: ReportOptions = DEFAULT_REPORT_OPTIONS): string {
   const url = input.env?.url ?? '(알 수 없음)';
   const header = ['# 버그 리포트', '', `- **생성:** ${fmtTimestamp(input.generatedAt)}`, `- **URL:** ${url}`];
-  return [
-    header.join('\n'),
-    envSection(input.env),
-    elementSection(input.pickedElement),
-    failedApiSection(input.requests),
-    logsSection(input.logs),
-    screenshotSection(input.screenshot),
-    '## 재현 절차\n\n_Phase 6에서 자동 생성 예정_',
-  ].join('\n\n');
+  const sections: string[] = [header.join('\n')];
+  if (options.includeEnv) sections.push(envSection(input.env));
+  if (options.includeElement) sections.push(elementSection(input.pickedElement));
+  if (options.includeFailedApi) sections.push(failedApiSection(input.requests, options.excludedRequestIds));
+  if (options.includeLogs) sections.push(logsSection(input.logs, options.excludedLogIds));
+  if (options.includeScreenshot) sections.push(screenshotSection(input.screenshot));
+  sections.push('## 재현 절차\n\n_Phase 6에서 자동 생성 예정_');
+  return sections.join('\n\n');
 }
 
 /** 마크다운 + 첨부(스크린샷) 번들. zip 패키징/다운로드는 패널(impure) 담당. */
-export function buildReport(input: ReportInput): {
+export function buildReport(
+  input: ReportInput,
+  options: ReportOptions = DEFAULT_REPORT_OPTIONS,
+): {
   markdown: string;
   attachments: ReportAttachment[];
 } {
-  const attachments: ReportAttachment[] = input.screenshot
-    ? [{ name: 'screenshot.png', dataUrl: input.screenshot }]
-    : [];
-  return { markdown: buildMarkdown(input), attachments };
+  const attachments: ReportAttachment[] =
+    options.includeScreenshot && input.screenshot
+      ? [{ name: 'screenshot.png', dataUrl: input.screenshot }]
+      : [];
+  return { markdown: buildMarkdown(input, options), attachments };
 }

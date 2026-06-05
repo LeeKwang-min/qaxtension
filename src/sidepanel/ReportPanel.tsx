@@ -6,7 +6,8 @@ import type {
   ElementInfo,
   ReportInput,
 } from '../messaging/types';
-import { buildReport } from '../report/builder';
+import { buildReport, DEFAULT_REPORT_OPTIONS, type ReportOptions } from '../report/builder';
+import { failedRequests } from '../capture/network';
 import { buildZip, type ZipFile } from '../report/zip';
 import { MarkdownPreview } from './MarkdownPreview';
 
@@ -35,6 +36,16 @@ interface Shape {
 }
 
 const COLORS = ['#e53935', '#1e88e5', '#fdd835'];
+
+/** 긴 URL 축약 (path+search 만) */
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname + u.search;
+  } catch {
+    return url;
+  }
+}
 
 /** 'data:image/png;base64,XXXX' → 바이트 */
 function dataUrlToBytes(dataUrl: string): Uint8Array {
@@ -111,6 +122,7 @@ export function ReportPanel({
   const [drag, setDrag] = useState<Shape | null>(null);
   const [copied, setCopied] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [options, setOptions] = useState<ReportOptions>(DEFAULT_REPORT_OPTIONS);
 
   // 새 스크린샷이 오면 주석 초기화
   useEffect(() => {
@@ -203,7 +215,30 @@ export function ReportPanel({
     };
   }
 
-  const { markdown, attachments } = buildReport(reportInput());
+  const { markdown, attachments } = buildReport(reportInput(), options);
+
+  // 섹션 on/off 토글
+  const toggleSection = (
+    key: 'includeEnv' | 'includeElement' | 'includeFailedApi' | 'includeLogs' | 'includeScreenshot',
+  ) => setOptions((o) => ({ ...o, [key]: !o[key] }));
+
+  // 개별 항목 제외 토글 (체크=포함)
+  const toggleExcludedRequest = (id: string) =>
+    setOptions((o) => ({
+      ...o,
+      excludedRequestIds: o.excludedRequestIds.includes(id)
+        ? o.excludedRequestIds.filter((x) => x !== id)
+        : [...o.excludedRequestIds, id],
+    }));
+  const toggleExcludedLog = (id: string) =>
+    setOptions((o) => ({
+      ...o,
+      excludedLogIds: o.excludedLogIds.includes(id)
+        ? o.excludedLogIds.filter((x) => x !== id)
+        : [...o.excludedLogIds, id],
+    }));
+
+  const failed = failedRequests(requests);
 
   async function copyMarkdown(): Promise<void> {
     try {
@@ -315,11 +350,79 @@ export function ReportPanel({
         )}
       </section>
 
+      {/* ── 포함 항목 선택 ── */}
+      <section style={{ marginBottom: 12 }}>
+        <strong style={{ fontSize: 12 }}>리포트에 포함할 항목</strong>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6, fontSize: 11 }}>
+          <label><input type="checkbox" checked={options.includeEnv} onChange={() => toggleSection('includeEnv')} /> 환경</label>
+          <label><input type="checkbox" checked={options.includeElement} onChange={() => toggleSection('includeElement')} /> 검사 요소</label>
+          <label><input type="checkbox" checked={options.includeFailedApi} onChange={() => toggleSection('includeFailedApi')} /> 실패 API</label>
+          <label><input type="checkbox" checked={options.includeLogs} onChange={() => toggleSection('includeLogs')} /> 에러·경고</label>
+          <label><input type="checkbox" checked={options.includeScreenshot} onChange={() => toggleSection('includeScreenshot')} /> 스크린샷</label>
+        </div>
+
+        {options.includeFailedApi && failed.length > 0 && (
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, color: '#555' }}>
+              실패 API 개별 제외 ({failed.length}건 중 {options.excludedRequestIds.length}건 제외)
+            </summary>
+            <div style={{ marginTop: 4 }}>
+              {failed.map((r) => (
+                <label
+                  key={r.id}
+                  style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 10, padding: '1px 0' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!options.excludedRequestIds.includes(r.id)}
+                    onChange={() => toggleExcludedRequest(r.id)}
+                  />
+                  <span style={{ color: '#b00020', fontWeight: 700, minWidth: 28 }}>
+                    {r.status ?? r.error ?? '오류'}
+                  </span>
+                  <span style={{ wordBreak: 'break-all', color: '#555' }}>
+                    {r.method} {shortUrl(r.url)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {options.includeLogs && logs.length > 0 && (
+          <details style={{ marginTop: 4 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, color: '#555' }}>
+              에러·경고 개별 제외 ({logs.length}건 중 {options.excludedLogIds.length}건 제외)
+            </summary>
+            <div style={{ marginTop: 4 }}>
+              {logs.map((l) => (
+                <label
+                  key={l.id}
+                  style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 10, padding: '1px 0' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!options.excludedLogIds.includes(l.id)}
+                    onChange={() => toggleExcludedLog(l.id)}
+                  />
+                  <span style={{ color: l.level === 'error' ? '#b00020' : '#c47f00', fontWeight: 700, minWidth: 36 }}>
+                    {l.level}
+                  </span>
+                  <span style={{ wordBreak: 'break-all', color: '#555' }}>{l.text}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
+      </section>
+
       {/* ── 요약 + 내보내기 ── */}
       <section>
         <div style={{ fontSize: 11, color: '#666', marginBottom: 6 }}>
-          포함: 검사 요소 {pickedElement ? 1 : 0} · 실패 API {failedCount} · 에러·경고 {logs.length}
-          {(annotatedDataUrl() ? ' · 스크린샷 1' : '')}
+          포함: 검사 요소 {options.includeElement && pickedElement ? 1 : 0} · 실패 API{' '}
+          {options.includeFailedApi ? failedCount - options.excludedRequestIds.length : 0} · 에러·경고{' '}
+          {options.includeLogs ? logs.length - options.excludedLogIds.length : 0}
+          {options.includeScreenshot && annotatedDataUrl() ? ' · 스크린샷 1' : ''}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button type="button" onClick={copyMarkdown} data-testid="copy-md">

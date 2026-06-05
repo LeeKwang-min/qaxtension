@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { osFromUA, guessLogin, buildMarkdown, buildReport } from '../src/report/builder';
+import {
+  osFromUA,
+  guessLogin,
+  buildMarkdown,
+  buildReport,
+  DEFAULT_REPORT_OPTIONS,
+} from '../src/report/builder';
 import type { EnvInfo, ReportInput, RequestRecord, LogRecord, ElementInfo } from '../src/messaging/types';
 
 const MAC_UA =
@@ -228,5 +234,47 @@ describe('buildReport', () => {
   it('includes screenshot.png attachment when present', () => {
     const r = buildReport(input({ screenshot: 'data:image/png;base64,AAAA' }));
     expect(r.attachments).toEqual([{ name: 'screenshot.png', dataUrl: 'data:image/png;base64,AAAA' }]);
+  });
+});
+
+describe('report options (include / exclude)', () => {
+  it('omits a section when its include flag is false', () => {
+    const md = buildMarkdown(input({ logs: [log()] }), {
+      ...DEFAULT_REPORT_OPTIONS,
+      includeLogs: false,
+    });
+    expect(md).not.toContain('최근 에러·경고');
+    expect(md).toContain('## 환경'); // 다른 섹션은 유지
+  });
+
+  it('omits the screenshot section and attachment when includeScreenshot is false', () => {
+    const opts = { ...DEFAULT_REPORT_OPTIONS, includeScreenshot: false };
+    const md = buildMarkdown(input({ screenshot: 'data:image/png;base64,AAAA' }), opts);
+    expect(md).not.toContain('## 스크린샷');
+    const r = buildReport(input({ screenshot: 'data:image/png;base64,AAAA' }), opts);
+    expect(r.attachments).toEqual([]);
+  });
+
+  it('excludes individually deselected failed requests by id', () => {
+    const fail1 = req({ id: 'keep', url: 'https://api/keep', ok: false, status: 500 });
+    const fail2 = req({ id: 'bridge', url: 'https://api/bridge', ok: false, status: 400 });
+    const md = buildMarkdown(input({ requests: [fail1, fail2] }), {
+      ...DEFAULT_REPORT_OPTIONS,
+      excludedRequestIds: ['bridge'],
+    });
+    expect(md).toContain('https://api/keep');
+    expect(md).not.toContain('https://api/bridge');
+    expect(md).toContain('실패한 API (1건)'); // 카운트도 제외 반영
+  });
+
+  it('excludes individually deselected logs by id', () => {
+    const a = log({ id: 'la', text: 'keep-me' });
+    const b = log({ id: 'lb', text: 'drop-me' });
+    const md = buildMarkdown(input({ logs: [a, b] }), {
+      ...DEFAULT_REPORT_OPTIONS,
+      excludedLogIds: ['lb'],
+    });
+    expect(md).toContain('keep-me');
+    expect(md).not.toContain('drop-me');
   });
 });
