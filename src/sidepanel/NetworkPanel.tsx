@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import type { RequestRecord } from '../messaging/types';
+import type { RequestRecord, PerfResource } from '../messaging/types';
 import { failedRequests, treemapCells, prettyBody } from '../capture/network';
 
 interface Props {
   requests: RequestRecord[];
+  perfResources: PerfResource[];
   injectReady: boolean;
   paused: boolean;
   onClear: () => void;
   onTogglePause: () => void;
+}
+
+/** 소요시간 → 색 (느릴수록 빨강) */
+function durationColor(ms: number): string {
+  if (ms >= 1000) return '#b00020';
+  if (ms >= 500) return '#c47f00';
+  return '#0a7d28';
 }
 
 /** host 만 잘라 표시 (긴 URL 축약용) */
@@ -134,7 +142,48 @@ function Detail({ r }: { r: RequestRecord }) {
   );
 }
 
-export function NetworkPanel({ requests, injectReady, paused, onClear, onTogglePause }: Props) {
+/** 이미지 리소스 로딩 성능 섹션 (느린 순) */
+function ImagePerfSection({ items }: { items: PerfResource[] }) {
+  if (items.length === 0) return null;
+  const sorted = [...items].sort((a, b) => b.durationMs - a.durationMs);
+  return (
+    <section style={{ marginTop: 12 }}>
+      <h3 style={{ fontSize: 12, margin: '0 0 2px', color: '#333' }}>이미지 로딩 ({items.length})</h3>
+      <p style={{ fontSize: 10, color: '#999', margin: '0 0 4px' }}>
+        전체 = 요청~수신 완료 · TTFB = 서버 응답 대기 · 다운로드 = 전송. (화면 렌더/디코드는 미포함)
+      </p>
+      <div>
+        {sorted.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'baseline',
+              padding: '3px 4px',
+              fontSize: 11,
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
+            <span style={{ color: durationColor(p.durationMs), fontWeight: 700, minWidth: 52, textAlign: 'right' }}>
+              {p.durationMs}ms
+            </span>
+            <span style={{ flex: 1, wordBreak: 'break-all' }}>{shortUrl(p.url)}</span>
+            <span style={{ color: '#999', minWidth: 130, textAlign: 'right' }}>
+              {p.fromCache
+                ? '캐시'
+                : p.ttfbMs != null
+                  ? `TTFB ${p.ttfbMs} · DL ${p.downloadMs ?? '–'}`
+                  : '타이밍 비공개'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function NetworkPanel({ requests, perfResources, injectReady, paused, onClear, onTogglePause }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const fails = failedRequests(requests);
   const cells = treemapCells(requests);
@@ -142,7 +191,7 @@ export function NetworkPanel({ requests, injectReady, paused, onClear, onToggleP
   // 같은 항목을 다시 누르면 접힘 (아코디언)
   const toggle = (id: string) => setSelectedId((prev) => (prev === id ? null : id));
 
-  if (!injectReady && requests.length === 0) {
+  if (!injectReady && requests.length === 0 && perfResources.length === 0) {
     return (
       <p style={{ color: '#999', fontSize: 12 }}>
         페이지가 연결되면 호출한 API 가 여기에 표시됩니다. 연결되지 않으면 페이지를 새로고침하세요.
@@ -251,6 +300,8 @@ export function NetworkPanel({ requests, injectReady, paused, onClear, onToggleP
           </div>
         </section>
       )}
+
+      <ImagePerfSection items={perfResources} />
     </div>
   );
 }

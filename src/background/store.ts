@@ -13,6 +13,7 @@ function createDefault(tabId: TabId): TabSessionState {
     hoveredElement: null,
     requests: [],
     logs: [],
+    perfResources: [],
     env: null,
     audit: null,
     networkPaused: false,

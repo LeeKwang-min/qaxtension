@@ -2,6 +2,7 @@ import { INJECT_SOURCE, isCmdEnvelope } from '../messaging';
 import type { InjectEnvelope, NetStart, NetEnd, LogEvent, LogLevel } from '../messaging/types';
 import { captureBody } from '../capture/network';
 import { serializeArgs } from '../capture/console';
+import { normalizePerfEntry, type PerfEntryLike } from '../capture/perf';
 
 type InjectWindow = Window & { __qaxtensionInjectReady?: boolean };
 const w = window as InjectWindow;
@@ -264,6 +265,34 @@ if (!w.__qaxtensionInjectReady) {
     } as typeof proto.send;
   } catch {
     /* XHR 후킹 실패 — 페이지 영향 없음 */
+  }
+
+  // ── 리소스(이미지) 로딩 성능 (ResourceTiming) ─────────────
+  // 이미지가 느린 원인이 서버 응답 대기(TTFB)인지 전송(다운로드)인지 구분하도록
+  // PerformanceObserver 로 'img' 리소스 타이밍을 수집한다.
+  try {
+    let perfSeq = 0;
+    const nextPerfId = (): string => {
+      perfSeq += 1;
+      return `perf-${Date.now().toString(36)}-${perfSeq}`;
+    };
+    const handlePerf = (entries: PerformanceEntryList): void => {
+      for (const e of entries) {
+        try {
+          const r = e as PerformanceResourceTiming;
+          if (r.entryType !== 'resource' || r.initiatorType !== 'img') continue;
+          const resource = normalizePerfEntry(r as unknown as PerfEntryLike, performance.timeOrigin, nextPerfId());
+          post({ type: 'PERF_RESOURCE', resource });
+        } catch {
+          /* 항목 하나 실패해도 나머지 진행 */
+        }
+      }
+    };
+    const po = new PerformanceObserver((list) => handlePerf(list.getEntries()));
+    // buffered: 관찰 시작 전 이미 로드된 이미지도 포함
+    po.observe({ type: 'resource', buffered: true });
+  } catch {
+    /* PerformanceObserver 미지원/실패 — 페이지 영향 없음 */
   }
 
   // ── 콘솔/에러 캡처 ────────────────────────────────────────

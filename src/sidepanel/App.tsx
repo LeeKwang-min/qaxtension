@@ -248,6 +248,7 @@ export function App() {
         ) : active === '네트워크' ? (
           <NetworkPanel
             requests={state?.requests ?? []}
+            perfResources={state?.perfResources ?? []}
             injectReady={state?.injectReady ?? false}
             paused={state?.networkPaused ?? false}
             onClear={clearNetwork}

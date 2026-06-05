@@ -162,3 +162,42 @@ test('hooked fetch still returns a usable Response (non-destructive)', async () 
   });
   expect(ok).toBe(true);
 });
+
+// inject 가 이미지 ResourceTiming 을 PERF_RESOURCE 로 발신하는지 (성능 측정 배선)
+test('inject emits PERF_RESOURCE for image loads with timing breakdown', async () => {
+  const page = await context.newPage();
+  await page.goto('https://example.com');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionContent))
+    .toBe('ready');
+
+  await page.evaluate(() => {
+    (window as any).__qaxPerf = [];
+    window.addEventListener('message', (ev) => {
+      const d: any = ev.data;
+      if (ev.source === window && d && d.source === 'qaxtension-inject' && d.payload?.type === 'PERF_RESOURCE') {
+        (window as any).__qaxPerf.push(d.payload.resource);
+      }
+    });
+    // 이미지 로드 → ResourceTiming 발생
+    const img = document.createElement('img');
+    img.src = 'https://example.com/favicon.ico?qax=' + Date.now();
+    document.body.appendChild(img);
+  });
+
+  const res = await page.evaluate(
+    () =>
+      new Promise<any>((resolve) => {
+        const check = () => {
+          const arr = (window as any).__qaxPerf as any[];
+          if (arr.length > 0) resolve(arr[0]);
+          else setTimeout(check, 100);
+        };
+        check();
+      }),
+  );
+
+  expect(res.initiatorType).toBe('img');
+  expect(typeof res.durationMs).toBe('number');
+  expect(res.url).toContain('favicon.ico');
+});

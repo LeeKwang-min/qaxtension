@@ -15,6 +15,8 @@ const panelPorts = new Map<TabId, Set<chrome.runtime.Port>>();
 const pendingNonces = new Map<TabId, string>();
 // 로그 레코드 id 단조 증가 시퀀스
 let logSeq = 0;
+// 탭당 보관할 리소스 성능 항목 상한
+const MAX_PERF = 300;
 
 function pushState(tabId: TabId): void {
   const ports = panelPorts.get(tabId);
@@ -224,6 +226,16 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       pushState(tabId);
       break;
     }
+    case 'PERF_RESOURCE': {
+      const state = getTabState(tabId);
+      if (state.networkPaused) break; // 캡처 일시중지 중엔 쌓지 않음
+      const next = [...state.perfResources, msg.resource];
+      updateTabState(tabId, {
+        perfResources: next.length > MAX_PERF ? next.slice(next.length - MAX_PERF) : next,
+      });
+      pushState(tabId);
+      break;
+    }
     case 'ENV_RESULT':
       updateTabState(tabId, { env: msg.env });
       pushState(tabId);
@@ -295,7 +307,7 @@ chrome.runtime.onConnect.addListener((port) => {
       updateTabState(msg.tabId, { pickedElement: null, hoveredElement: null });
       pushState(msg.tabId);
     } else if (msg.type === 'NETWORK_CLEAR') {
-      updateTabState(msg.tabId, { requests: [] });
+      updateTabState(msg.tabId, { requests: [], perfResources: [] });
       pushState(msg.tabId);
     } else if (msg.type === 'CONSOLE_CLEAR') {
       updateTabState(msg.tabId, { logs: [] });

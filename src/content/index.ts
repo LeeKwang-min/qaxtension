@@ -119,6 +119,11 @@ window.addEventListener('message', (ev: MessageEvent) => {
     void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });
+  } else if (payload.type === 'PERF_RESOURCE') {
+    const msg: RuntimeMessage = { type: 'PERF_RESOURCE', resource: payload.resource };
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   }
 });
 

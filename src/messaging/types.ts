@@ -87,6 +87,30 @@ export interface TreemapCell {
   bytes: number;
 }
 
+/**
+ * 리소스(이미지 등) 로딩 성능 한 건 — ResourceTiming 분해.
+ * 네트워크 단계를 나눠 "서버 응답 대기(TTFB)" 와 "전송(다운로드)" 을 구분할 수 있게 한다.
+ */
+export interface PerfResource {
+  id: string;
+  url: string;
+  /** initiatorType (예: 'img') */
+  initiatorType: string;
+  startedAt: number; // epoch ms
+  /** 전체 소요 (responseEnd - startTime) */
+  durationMs: number;
+  /** 서버 응답 시작까지 (responseStart - requestStart). cross-origin TAO 없으면 null */
+  ttfbMs: number | null;
+  /** 본문 다운로드 (responseEnd - responseStart). TAO 없으면 null */
+  downloadMs: number | null;
+  /** 전송 바이트 (캐시면 0, 모르면 null) */
+  transferSize: number | null;
+  /** 디코드된 본문 크기 (모르면 null) */
+  decodedBodySize: number | null;
+  /** 캐시에서 제공됐는지(추정) */
+  fromCache: boolean;
+}
+
 /** 로그 레벨 (v1 은 문제 신호인 error/warn 만 수집) */
 export type LogLevel = 'error' | 'warn';
 
@@ -334,7 +358,8 @@ export interface InjectEnvelope {
     | { type: 'PING_REPLY'; nonce: string }
     | { type: 'NET_START'; record: NetStart }
     | { type: 'NET_END'; id: string; end: NetEnd }
-    | { type: 'LOG'; event: LogEvent };
+    | { type: 'LOG'; event: LogEvent }
+    | { type: 'PERF_RESOURCE'; resource: PerfResource };
 }
 
 /** ISOLATED(content) → MAIN world(inject) 로 가는 명령 봉투 */
@@ -365,6 +390,8 @@ export type RuntimeMessage =
   | { type: 'NET_END'; id: string; end: NetEnd }
   // content → background: 콘솔/에러 로그 중계
   | { type: 'LOG'; event: LogEvent }
+  // content → background: 리소스(이미지) 로딩 성능 중계
+  | { type: 'PERF_RESOURCE'; resource: PerfResource }
   // background → content: 환경정보 수집 요청
   | { type: 'COLLECT_ENV' }
   // content → background: 환경정보 수집 결과
@@ -394,6 +421,8 @@ export interface TabSessionState {
   hoveredElement: ElementInfo | null;
   requests: RequestRecord[];
   logs: LogRecord[];
+  /** 이미지 등 리소스 로딩 성능 (ResourceTiming) */
+  perfResources: PerfResource[];
   /** 마지막으로 수집한 환경정보 (없으면 null) */
   env: EnvInfo | null;
   /** 마지막 자동 검증 결과 (없으면 null) */
