@@ -44,8 +44,8 @@ inject (MAIN world)  ──postMessage──▶  content (ISOLATED)  ──runti
 
 - [x] **Phase 0 — 토대** (빌드, 사이드 패널 셸, inject→content→background→panel 메시지 파이프라인, 단위·e2e 테스트)
 - [x] **Phase 1 — 요소·스타일 검사기** (호버+클릭 피커 → 색상·타이포그래피·박스모델·접근성(WCAG 대비비) 표시)
-- [x] **Phase 2 — API 모니터** (fetch/XHR 후킹 → 리스트·실패·트리맵·요청/응답 본문)
-- [ ] Phase 3 — 콘솔/에러 수집
+- [x] **Phase 2 — API 모니터** (fetch/XHR 후킹 → 리스트·실패·트리맵·요청/응답 본문, `chrome.webRequest` 보조 소스로 CORS·네트워크 오류 보완)
+- [x] **Phase 3 — 콘솔/에러 수집** (console.error/warn·런타임 에러·미처리 프로미스 거부 후킹 → 레벨 필터·시각·스택·연속 병합)
 - [ ] Phase 4 — 증거 & 리포트
 - [ ] Phase 5 — 추가 검증
 - [ ] Phase 6 — 행동 기록
@@ -55,3 +55,5 @@ inject (MAIN world)  ──postMessage──▶  content (ISOLATED)  ──runti
 - 설계: `docs/superpowers/specs/2026-06-04-qa-companion-design.md`
 - Phase 0 구현 계획: `docs/superpowers/plans/2026-06-04-phase0-foundation.md`
 - Phase 2 구현 계획: `docs/superpowers/plans/2026-06-05-phase2-api-monitor.md`
+- Phase 2b(webRequest 병합) 계획: `docs/superpowers/plans/2026-06-05-phase2b-webrequest-merge.md`
+- Phase 3 구현 계획: `docs/superpowers/plans/2026-06-05-phase3-console-errors.md`
