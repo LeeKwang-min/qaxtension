@@ -351,6 +351,8 @@ export interface ReportInput {
   pickedElement: ElementInfo | null;
   requests: RequestRecord[];
   logs: LogRecord[];
+  /** 기록된 재현 절차 스텝 */
+  steps: Step[];
   /** 주석 적용된 스크린샷 dataURL (없으면 null) */
   screenshot: string | null;
 }

@@ -6,7 +6,7 @@ import {
   buildReport,
   DEFAULT_REPORT_OPTIONS,
 } from '../src/report/builder';
-import type { EnvInfo, ReportInput, RequestRecord, LogRecord, ElementInfo } from '../src/messaging/types';
+import type { EnvInfo, ReportInput, RequestRecord, LogRecord, ElementInfo, Step } from '../src/messaging/types';
 
 const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -112,9 +112,14 @@ function input(over: Partial<ReportInput> = {}): ReportInput {
     pickedElement: null,
     requests: [],
     logs: [],
+    steps: [],
     screenshot: null,
     ...over,
   };
+}
+
+function stp(over: Partial<Step> = {}): Step {
+  return { id: 's1', kind: 'click', selector: 'button', label: null, value: null, at: 0, ...over };
 }
 
 describe('buildMarkdown', () => {
@@ -210,6 +215,24 @@ describe('buildMarkdown', () => {
     expect(md).toContain('21');
   });
 
+  it('renders recorded reproduction steps', () => {
+    const md = buildMarkdown(
+      input({
+        steps: [
+          stp({ id: '1', kind: 'navigate', selector: null, value: 'https://x.test/login' }),
+          stp({ id: '2', kind: 'click', label: '로그인' }),
+        ],
+      }),
+    );
+    expect(md).toContain('## 재현 절차');
+    expect(md).toContain('1. 페이지 이동 → https://x.test/login');
+    expect(md).toContain('2. "로그인" 클릭');
+  });
+
+  it('shows empty-state for reproduction steps when none recorded', () => {
+    expect(buildMarkdown(input())).toContain('기록된 행동 없음');
+  });
+
   it('notes screenshot attachment only when present', () => {
     expect(buildMarkdown(input())).toContain('스크린샷 없음');
     expect(buildMarkdown(input({ screenshot: 'data:image/png;base64,AAAA' }))).toContain(
@@ -265,6 +288,15 @@ describe('report options (include / exclude)', () => {
     expect(md).toContain('https://api/keep');
     expect(md).not.toContain('https://api/bridge');
     expect(md).toContain('실패한 API (1건)'); // 카운트도 제외 반영
+  });
+
+  it('omits the reproduction steps section when includeSteps is false', () => {
+    const md = buildMarkdown(input({ steps: [stp({ kind: 'click', label: '로그인' })] }), {
+      ...DEFAULT_REPORT_OPTIONS,
+      includeSteps: false,
+    });
+    expect(md).not.toContain('## 재현 절차');
+    expect(md).toContain('## 환경'); // 다른 섹션은 유지
   });
 
   it('excludes individually deselected logs by id', () => {

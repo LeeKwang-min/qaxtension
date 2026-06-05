@@ -121,6 +121,7 @@ describe('parseBlocks', () => {
         },
       ],
       logs: [],
+      steps: [],
       screenshot: null,
     };
     const blocks = parseBlocks(buildMarkdown(input));

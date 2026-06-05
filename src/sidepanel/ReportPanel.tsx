@@ -5,6 +5,7 @@ import type {
   LogRecord,
   ElementInfo,
   ReportInput,
+  Step,
 } from '../messaging/types';
 import { buildReport, DEFAULT_REPORT_OPTIONS, type ReportOptions } from '../report/builder';
 import { failedRequests } from '../capture/network';
@@ -16,6 +17,7 @@ interface Props {
   requests: RequestRecord[];
   logs: LogRecord[];
   pickedElement: ElementInfo | null;
+  steps: Step[];
   /** background 가 돌려준 원본 스크린샷 dataURL (없으면 null) */
   screenshot: string | null;
   screenshotError: string | null;
@@ -107,6 +109,7 @@ export function ReportPanel({
   requests,
   logs,
   pickedElement,
+  steps,
   screenshot,
   screenshotError,
   capturing,
@@ -211,6 +214,7 @@ export function ReportPanel({
       pickedElement,
       requests,
       logs,
+      steps,
       screenshot: annotatedDataUrl(),
     };
   }
@@ -219,7 +223,13 @@ export function ReportPanel({
 
   // 섹션 on/off 토글
   const toggleSection = (
-    key: 'includeEnv' | 'includeElement' | 'includeFailedApi' | 'includeLogs' | 'includeScreenshot',
+    key:
+      | 'includeEnv'
+      | 'includeElement'
+      | 'includeFailedApi'
+      | 'includeLogs'
+      | 'includeScreenshot'
+      | 'includeSteps',
   ) => setOptions((o) => ({ ...o, [key]: !o[key] }));
 
   // 개별 항목 제외 토글 (체크=포함)
@@ -359,6 +369,7 @@ export function ReportPanel({
           <label><input type="checkbox" checked={options.includeFailedApi} onChange={() => toggleSection('includeFailedApi')} /> 실패 API</label>
           <label><input type="checkbox" checked={options.includeLogs} onChange={() => toggleSection('includeLogs')} /> 에러·경고</label>
           <label><input type="checkbox" checked={options.includeScreenshot} onChange={() => toggleSection('includeScreenshot')} /> 스크린샷</label>
+          <label><input type="checkbox" checked={options.includeSteps} onChange={() => toggleSection('includeSteps')} /> 재현 절차</label>
         </div>
 
         {options.includeFailedApi && failed.length > 0 && (
@@ -423,6 +434,7 @@ export function ReportPanel({
           {options.includeFailedApi ? failedCount - options.excludedRequestIds.length : 0} · 에러·경고{' '}
           {options.includeLogs ? logs.length - options.excludedLogIds.length : 0}
           {options.includeScreenshot && annotatedDataUrl() ? ' · 스크린샷 1' : ''}
+          {options.includeSteps && steps.length > 0 ? ` · 재현 절차 ${steps.length}` : ''}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button type="button" onClick={copyMarkdown} data-testid="copy-md">

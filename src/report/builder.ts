@@ -6,6 +6,7 @@ import type {
   LogRecord,
   LoginGuess,
 } from '../messaging/types';
+import { buildStepsSection } from '../capture/recorder';
 
 /** 표/리스트에 싣는 최대 행 수 (초과분은 "외 N건" 표기) */
 export const MAX_REPORT_ROWS = 50;
@@ -17,6 +18,7 @@ export interface ReportOptions {
   includeFailedApi: boolean;
   includeLogs: boolean;
   includeScreenshot: boolean;
+  includeSteps: boolean;
   /** 리포트에서 뺄 실패 API id (개별 체크 해제) */
   excludedRequestIds: string[];
   /** 리포트에서 뺄 로그 id (개별 체크 해제) */
@@ -30,6 +32,7 @@ export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
   includeFailedApi: true,
   includeLogs: true,
   includeScreenshot: true,
+  includeSteps: true,
   excludedRequestIds: [],
   excludedLogIds: [],
 };
@@ -203,7 +206,7 @@ export function buildMarkdown(input: ReportInput, options: ReportOptions = DEFAU
   if (options.includeFailedApi) sections.push(failedApiSection(input.requests, options.excludedRequestIds));
   if (options.includeLogs) sections.push(logsSection(input.logs, options.excludedLogIds));
   if (options.includeScreenshot) sections.push(screenshotSection(input.screenshot));
-  sections.push('## 재현 절차\n\n_Phase 6에서 자동 생성 예정_');
+  if (options.includeSteps) sections.push(buildStepsSection(input.steps));
   return sections.join('\n\n');
 }
 

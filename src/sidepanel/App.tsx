@@ -5,6 +5,7 @@ import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
 import { ReportPanel } from './ReportPanel';
 import { AuditPanel } from './AuditPanel';
+import { RecordPanel } from './RecordPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -173,6 +174,20 @@ export function App() {
 
   const collapseTree = () => setTreeCollapse((s) => s + 1);
 
+  const toggleRecord = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({
+      type: 'RECORD_SET_ACTIVE',
+      tabId,
+      active: !(state?.recording ?? false),
+    } satisfies PortMessage);
+  };
+
+  const clearRecord = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'RECORD_CLEAR', tabId } satisfies PortMessage);
+  };
+
   // 페이지가 바뀌면(또는 연결 해제) 트리 캐시를 비운다 (DomTree 는 treeKey 로 remount)
   useEffect(() => {
     setDomTree({});
@@ -268,12 +283,21 @@ export function App() {
             onRunAudit={runAudit}
             onResize={resizeWindow}
           />
+        ) : active === '기록' ? (
+          <RecordPanel
+            recording={state?.recording ?? false}
+            steps={state?.steps ?? []}
+            injectReady={state?.injectReady ?? false}
+            onToggleRecord={toggleRecord}
+            onClear={clearRecord}
+          />
         ) : active === '리포트' ? (
           <ReportPanel
             env={state?.env ?? null}
             requests={state?.requests ?? []}
             logs={state?.logs ?? []}
             pickedElement={state?.pickedElement ?? null}
+            steps={state?.steps ?? []}
             screenshot={screenshot}
             screenshotError={screenshotError}
             capturing={capturing}
