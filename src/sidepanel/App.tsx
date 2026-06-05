@@ -3,6 +3,7 @@ import type { PortMessage, TabSessionState, TabId } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
+import { ReportPanel } from './ReportPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -11,7 +12,16 @@ export function App() {
   const [state, setState] = useState<TabSessionState | null>(null);
   const [active, setActive] = useState<PanelTab>('검사');
   const [tabId, setTabId] = useState<TabId | null>(null);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const [collectingEnv, setCollectingEnv] = useState(false);
   const portRef = useRef<chrome.runtime.Port | null>(null);
+
+  // env 가 갱신되면 수집 중 표시 해제
+  useEffect(() => {
+    setCollectingEnv(false);
+  }, [state?.env?.collectedAt]);
 
   useEffect(() => {
     // `cancelled` 는 cleanup 이후 async .then() 이 실행되는 것을 막는다.
@@ -27,11 +37,18 @@ export function App() {
       portRef.current = port;
       port.onMessage.addListener((msg: PortMessage) => {
         if (msg.type === 'STATE_UPDATE') setState(msg.state);
+        else if (msg.type === 'SCREENSHOT_RESULT') {
+          setCapturing(false);
+          setScreenshotError(msg.error ?? null);
+          if (msg.dataUrl) setScreenshot(msg.dataUrl);
+        }
       });
       port.onDisconnect.addListener(() => {
         // 서비스 워커가 종료/재시작되면 포트가 끊긴다 → 연결 끊김을 정직하게 표시
         portRef.current = null;
         setState(null);
+        setCapturing(false);
+        setCollectingEnv(false);
       });
       port.postMessage({ type: 'SUBSCRIBE', tabId: tab.id } satisfies PortMessage);
     });
@@ -63,6 +80,19 @@ export function App() {
   const clearConsole = () => {
     if (!portRef.current || tabId == null) return;
     portRef.current.postMessage({ type: 'CONSOLE_CLEAR', tabId } satisfies PortMessage);
+  };
+
+  const captureScreenshot = () => {
+    if (!portRef.current || tabId == null) return;
+    setScreenshotError(null);
+    setCapturing(true);
+    portRef.current.postMessage({ type: 'CAPTURE_SCREENSHOT', tabId } satisfies PortMessage);
+  };
+
+  const collectEnv = () => {
+    if (!portRef.current || tabId == null) return;
+    setCollectingEnv(true);
+    portRef.current.postMessage({ type: 'COLLECT_ENV', tabId } satisfies PortMessage);
   };
 
   return (
@@ -119,6 +149,19 @@ export function App() {
             logs={state?.logs ?? []}
             injectReady={state?.injectReady ?? false}
             onClear={clearConsole}
+          />
+        ) : active === '리포트' ? (
+          <ReportPanel
+            env={state?.env ?? null}
+            requests={state?.requests ?? []}
+            logs={state?.logs ?? []}
+            pickedElement={state?.pickedElement ?? null}
+            screenshot={screenshot}
+            screenshotError={screenshotError}
+            capturing={capturing}
+            collectingEnv={collectingEnv}
+            onCaptureScreenshot={captureScreenshot}
+            onCollectEnv={collectEnv}
           />
         ) : (
           <p style={{ color: '#999' }}>{active} 패널 — 이후 Phase에서 구현</p>
