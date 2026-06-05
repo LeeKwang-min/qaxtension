@@ -17,6 +17,9 @@ interface Props {
   onTreeHighlight: (path: number[] | null) => void;
   /** 페이지에서 가리킨 요소의 트리 경로 (동기화용) */
   treeSyncPath: number[] | null;
+  /** "모두 접기" 신호 (변경 시 트리 접힘) */
+  treeCollapseSignal: number;
+  onTreeCollapse: () => void;
 }
 
 function Swatch({ hex }: { hex: string }) {
@@ -67,6 +70,8 @@ export function InspectPanel({
   onTreeSelect,
   onTreeHighlight,
   treeSyncPath,
+  treeCollapseSignal,
+  onTreeCollapse,
 }: Props) {
   // 고정 선택(picked)이 우선, 없으면 호버 미리보기(picking 중에만)
   const display = picked ?? (picking ? hovered : null);
@@ -91,7 +96,12 @@ export function InspectPanel({
 
       {injectReady && (
         <section style={{ marginTop: 12 }}>
-          <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#333' }}>DOM 트리</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
+            <h3 style={{ fontSize: 12, margin: 0, color: '#333' }}>DOM 트리</h3>
+            <button type="button" onClick={onTreeCollapse} style={{ fontSize: 10, padding: '1px 6px' }}>
+              모두 접기
+            </button>
+          </div>
           <DomTree
             key={treeKey}
             childrenMap={treeChildren}
@@ -99,6 +109,7 @@ export function InspectPanel({
             onSelect={onTreeSelect}
             onHighlight={onTreeHighlight}
             syncPath={treeSyncPath}
+            collapseSignal={treeCollapseSignal}
           />
         </section>
       )}

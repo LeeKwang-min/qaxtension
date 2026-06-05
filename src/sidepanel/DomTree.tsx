@@ -12,6 +12,8 @@ interface Props {
   onHighlight: (path: number[] | null) => void;
   /** 페이지에서 가리킨 요소의 경로 — 트리를 그 위치로 펼치고 강조 (null 이면 동기화 안 함) */
   syncPath: number[] | null;
+  /** 값이 바뀌면 모든 노드를 접는다 (0 은 초기값, 무시) */
+  collapseSignal: number;
 }
 
 const keyOf = (p: number[]): string => p.join('.');
@@ -112,11 +114,18 @@ function TreeNode({
   );
 }
 
-export function DomTree({ childrenMap, onExpand, onSelect, onHighlight, syncPath }: Props) {
+export function DomTree({ childrenMap, onExpand, onSelect, onHighlight, syncPath, collapseSignal }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const roots = childrenMap[''];
   const syncKey = syncPath ? keyOf(syncPath) : null;
+
+  // "모두 접기" — collapseSignal 이 바뀌면 모든 노드를 접고 선택 해제
+  useEffect(() => {
+    if (collapseSignal === 0) return;
+    setExpanded(new Set());
+    setSelectedKey(null);
+  }, [collapseSignal]);
 
   // 페이지 → 트리 동기화: 가리킨 요소의 조상을 모두 펼치고 그 노드를 선택
   useEffect(() => {

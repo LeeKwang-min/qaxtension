@@ -20,6 +20,8 @@ export function App() {
   const [runningAudit, setRunningAudit] = useState(false);
   // DOM 트리: path 키('a.b') → 직계 자식들 (루트는 '')
   const [domTree, setDomTree] = useState<Record<string, DomTreeNode[]>>({});
+  // "모두 접기" 신호 (증가 시 트리가 접힘)
+  const [treeCollapse, setTreeCollapse] = useState(0);
   const portRef = useRef<chrome.runtime.Port | null>(null);
   // 재연결 버튼이 호출하는 함수 (effect 내부에서 주입). reinject=true 면 강제 재주입.
   const reconnectRef = useRef<(reinject: boolean) => void>(() => {});
@@ -164,6 +166,8 @@ export function App() {
     portRef.current.postMessage({ type: 'HIGHLIGHT_PATH', tabId, path } satisfies PortMessage);
   };
 
+  const collapseTree = () => setTreeCollapse((s) => s + 1);
+
   // 페이지가 바뀌면(또는 연결 해제) 트리 캐시를 비운다 (DomTree 는 treeKey 로 remount)
   useEffect(() => {
     setDomTree({});
@@ -232,6 +236,8 @@ export function App() {
               state?.pickedElement?.domPath ??
               (state?.picking ? state?.hoveredElement?.domPath ?? null : null)
             }
+            treeCollapseSignal={treeCollapse}
+            onTreeCollapse={collapseTree}
           />
         ) : active === '네트워크' ? (
           <NetworkPanel

@@ -185,3 +185,22 @@ export function treemapCells(list: RequestRecord[]): TreemapCell[] {
   cells.sort((a, b) => b.count - a.count);
   return cells;
 }
+
+/**
+ * 본문이 JSON 이면 2-space 들여쓰기로 보기 좋게 정렬한다.
+ * content-type 힌트 또는 선행 '{'/'[' 로 JSON 을 감지하고, 파싱 실패(잘린 본문 등)면
+ * 원본을 그대로 반환한다(비파괴적).
+ */
+export function prettyBody(text: string, contentType: string | null): string {
+  if (!text) return text;
+  const hint = contentType?.toLowerCase().includes('json') ?? false;
+  const looksJson = /^\s*[{[]/.test(text);
+  if (hint || looksJson) {
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+      // 잘렸거나 유효하지 않은 JSON → 원본 유지
+    }
+  }
+  return text;
+}

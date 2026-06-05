@@ -7,6 +7,7 @@ import {
   failedRequests,
   treemapCells,
   mergeWebReq,
+  prettyBody,
   MAX_BODY,
   MAX_REQUESTS,
   WEBREQ_MATCH_WINDOW_MS,
@@ -229,5 +230,29 @@ describe('mergeWebReq', () => {
     expect(list).toHaveLength(2);
     const consumed = list.find((r) => r.webReqId === 'wr1')!;
     expect(consumed.id).toBe('b'); // 1400 이 1450 에 더 가깝다
+  });
+});
+
+describe('prettyBody', () => {
+  it('pretty-prints valid JSON with 2-space indentation', () => {
+    const out = prettyBody('{"a":1,"b":{"c":2}}', 'application/json');
+    expect(out).toBe('{\n  "a": 1,\n  "b": {\n    "c": 2\n  }\n}');
+  });
+
+  it('detects JSON by leading brace/bracket even without a content-type', () => {
+    expect(prettyBody('[1,2]', null)).toBe('[\n  1,\n  2\n]');
+  });
+
+  it('returns the original text for non-JSON', () => {
+    expect(prettyBody('hello world', 'text/plain')).toBe('hello world');
+  });
+
+  it('returns the original text for invalid/truncated JSON', () => {
+    const truncated = '{"a":1,"b":';
+    expect(prettyBody(truncated, 'application/json')).toBe(truncated);
+  });
+
+  it('leaves an empty string untouched', () => {
+    expect(prettyBody('', null)).toBe('');
   });
 });

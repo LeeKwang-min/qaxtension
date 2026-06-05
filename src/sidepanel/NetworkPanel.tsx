@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { RequestRecord } from '../messaging/types';
-import { failedRequests, treemapCells } from '../capture/network';
+import { failedRequests, treemapCells, prettyBody } from '../capture/network';
 
 interface Props {
   requests: RequestRecord[];
@@ -50,14 +50,43 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      },
+      () => {},
+    );
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      disabled={!text}
+      style={{ fontSize: 10, padding: '1px 6px' }}
+      title="본문을 클립보드에 복사"
+    >
+      {copied ? '복사됨 ✓' : '복사'}
+    </button>
+  );
+}
+
 function BodyBlock({ title, body }: { title: string; body: RequestRecord['requestBody'] }) {
   if (!body) return null;
+  // JSON 이면 보기 좋게 정렬 (잘린 본문 등 파싱 실패 시 원본 유지)
+  const display = prettyBody(body.text, body.contentType);
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 11, color: '#666' }}>
-        {title}
-        {body.contentType ? ` · ${body.contentType}` : ''}
-        {body.truncated ? ` · 절단됨 (원본 ${body.size}자)` : ''}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#666' }}>
+        <span style={{ flex: 1 }}>
+          {title}
+          {body.contentType ? ` · ${body.contentType}` : ''}
+          {body.truncated ? ` · 절단됨 (원본 ${body.size}자)` : ''}
+        </span>
+        <CopyButton text={display} />
       </div>
       <pre
         style={{
@@ -67,11 +96,11 @@ function BodyBlock({ title, body }: { title: string; body: RequestRecord['reques
           fontSize: 11,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all',
-          maxHeight: 160,
+          maxHeight: 200,
           overflow: 'auto',
         }}
       >
-        {body.text || '(빈 본문)'}
+        {display || '(빈 본문)'}
       </pre>
     </div>
   );
