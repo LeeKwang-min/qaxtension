@@ -1,6 +1,12 @@
 import { CMD_SOURCE, isInjectEnvelope } from '../messaging';
 import type { CmdEnvelope, RuntimeMessage } from '../messaging/types';
 
+// inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
+function requestResync(): void {
+  const envelope: CmdEnvelope = { source: CMD_SOURCE, payload: { type: 'RESYNC' } };
+  window.postMessage(envelope, '*');
+}
+
 // MAIN world(inject) → background 로 중계
 window.addEventListener('message', (ev: MessageEvent) => {
   if (ev.source !== window) return;
@@ -28,5 +34,13 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   if (msg.type === 'PING') {
     const envelope: CmdEnvelope = { source: CMD_SOURCE, payload: { type: 'PING', nonce: msg.nonce } };
     window.postMessage(envelope, '*');
+  } else if (msg.type === 'RESYNC') {
+    // 패널이 SUBSCRIBE 할 때 background 가 보낸다 → inject 에게 재확인 요청
+    requestResync();
   }
 });
+
+// 로드 시 inject 에게 현재 상태를 물어본다.
+// inject 의 spontaneous INJECT_READY 와 함께 두 방향(누가 먼저 로드되든)을 모두 커버해
+// document_start 로더 경합으로 최초 신호를 놓치는 문제를 보정한다.
+requestResync();

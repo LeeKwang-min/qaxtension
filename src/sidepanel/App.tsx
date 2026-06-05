@@ -54,7 +54,7 @@ export function App() {
           data-testid="status"
           style={{ marginTop: 4, color: state?.injectReady ? 'green' : '#999' }}
         >
-          {state?.injectReady ? '주입됨 ✓' : '대기 중…'}
+          {state?.injectReady ? '주입됨 ✓' : '대기 중… (연결되지 않으면 페이지를 새로고침하세요)'}
         </div>
         <div style={{ fontSize: 11, color: '#666', wordBreak: 'break-all' }}>
           {state?.url ?? ''}

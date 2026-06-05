@@ -11,14 +11,19 @@ export interface InjectEnvelope {
 /** ISOLATED(content) → MAIN world(inject) 로 가는 명령 봉투 */
 export interface CmdEnvelope {
   source: 'qaxtension-cmd';
-  payload: { type: 'PING'; nonce: string };
+  payload:
+    | { type: 'PING'; nonce: string }
+    // 현재 readiness 를 다시 알려달라는 요청 (inject 는 INJECT_READY 를 재발신)
+    | { type: 'RESYNC' };
 }
 
 /** chrome.runtime 메시지 (content↔background 양방향 공유 union) */
 export type RuntimeMessage =
   | { type: 'INJECT_READY' }
   | { type: 'PING_REPLY'; nonce: string }
-  | { type: 'PING'; nonce: string };
+  | { type: 'PING'; nonce: string }
+  // background → content: 현재 페이지 readiness 재확인 요청
+  | { type: 'RESYNC' };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
