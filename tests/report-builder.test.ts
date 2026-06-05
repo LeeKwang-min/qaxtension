@@ -119,7 +119,7 @@ function input(over: Partial<ReportInput> = {}): ReportInput {
 }
 
 function stp(over: Partial<Step> = {}): Step {
-  return { id: 's1', kind: 'click', selector: 'button', label: null, value: null, at: 0, ...over };
+  return { id: 's1', kind: 'click', selector: 'button', label: null, value: null, context: null, nearby: [], at: 0, ...over };
 }
 
 describe('buildMarkdown', () => {

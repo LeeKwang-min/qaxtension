@@ -26,7 +26,7 @@ function q(html: string, sel: string): Element {
 }
 
 function ev(p: Partial<InteractionEvent>): InteractionEvent {
-  return { kind: 'click', selector: 'button', label: null, value: null, at: 0, ...p };
+  return { kind: 'click', selector: 'button', label: null, value: null, context: null, nearby: [], at: 0, ...p };
 }
 function step(p: Partial<Step>): Step {
   return { id: 's1', ...ev(p) } as Step;
@@ -132,6 +132,10 @@ describe('recorder — describeStep', () => {
     expect(describeStep(step({ kind: 'navigate', selector: null, value: 'https://x.test/login' }))).toContain('https://x.test/login');
   });
 
+  it('appends the region context when present', () => {
+    expect(describeStep(step({ kind: 'click', label: '확인', context: '로그인 모달' }))).toBe('"확인" 클릭 — 로그인 모달');
+  });
+
   it('falls back to selector when label missing', () => {
     expect(describeStep(step({ kind: 'click', label: null, selector: 'div.card' }))).toBe('"div.card" 클릭');
   });
@@ -152,6 +156,28 @@ describe('recorder — buildStepsSection', () => {
     expect(md).toContain('1. 페이지 이동 → https://x.test');
     expect(md).toContain('2. "로그인" 클릭');
     expect(md).toContain('3. "이메일" 에 "a@b.com" 입력');
+  });
+
+  it('renders selector and nearby texts as sub-lines', () => {
+    const md = buildStepsSection([
+      step({
+        id: '1',
+        kind: 'click',
+        label: '확인',
+        context: '로그인 모달',
+        selector: 'button#login-confirm.btn-primary',
+        nearby: ['로그인', '비밀번호 찾기'],
+      }),
+    ]);
+    expect(md).toContain('1. "확인" 클릭 — 로그인 모달');
+    expect(md).toContain('`button#login-confirm.btn-primary`');
+    expect(md).toContain('주변: "로그인", "비밀번호 찾기"');
+  });
+
+  it('omits sub-lines for a navigate step (no selector/nearby)', () => {
+    const md = buildStepsSection([step({ id: '1', kind: 'navigate', selector: null, value: 'https://x.test' })]);
+    expect(md).not.toContain('주변:');
+    expect(md).not.toContain('↳');
   });
 });
 
@@ -183,13 +209,19 @@ describe('recorder — labelOf (DOM)', () => {
 });
 
 describe('recorder — interactionFromClick (DOM)', () => {
-  it('records clicks on buttons with selector + label', () => {
-    const e = interactionFromClick(q('<button id="login">로그인</button>', 'button'), 7);
+  it('records clicks on buttons with a rich selector signature + label', () => {
+    const e = interactionFromClick(q('<button id="login" class="btn-primary big">로그인</button>', 'button'), 7);
     expect(e).not.toBeNull();
     expect(e!.kind).toBe('click');
-    expect(e!.selector).toBe('#login');
+    expect(e!.selector).toBe('button#login.btn-primary.big');
     expect(e!.label).toBe('로그인');
     expect(e!.at).toBe(7);
+  });
+
+  it('includes name/type attributes in the signature when present', () => {
+    expect(interactionFromClick(q('<input type="submit" name="ok" value="확인">', 'input'), 0)?.selector).toBe(
+      'input[name=ok]',
+    );
   });
 
   it('records a click when target is inside a button (closest clickable)', () => {
@@ -214,13 +246,14 @@ describe('recorder — interactionFromClick (DOM)', () => {
 });
 
 describe('recorder — interactionFromChange (DOM)', () => {
-  it('records text input value', () => {
-    const el = q('<input type="text" name="email">', 'input') as HTMLInputElement;
+  it('records text input value with a name-qualified signature', () => {
+    const el = q('<input id="email" type="text" name="email">', 'input') as HTMLInputElement;
     el.value = 'a@b.com';
     const e = interactionFromChange(el, 3);
     expect(e?.kind).toBe('input');
     expect(e?.value).toBe('a@b.com');
     expect(e?.label).toBe('email');
+    expect(e?.selector).toBe('input#email[name=email]');
     expect(e?.at).toBe(3);
   });
 
@@ -251,5 +284,40 @@ describe('recorder — interactionFromChange (DOM)', () => {
 
   it('ignores change on non-form elements', () => {
     expect(interactionFromChange(q('<div></div>', 'div'), 0)).toBeNull();
+  });
+});
+
+describe('recorder — region context + nearby (DOM)', () => {
+  const MODAL =
+    '<div role="dialog" aria-label="로그인">' +
+    '<h2>로그인</h2>' +
+    '<input id="email" name="email" type="text">' +
+    '<a href="/forgot">비밀번호 찾기</a>' +
+    '<a href="/signup">회원가입</a>' +
+    '<button id="confirm" class="btn-primary">확인</button>' +
+    '</div>';
+
+  it('names the region from a dialog aria-label and appends the type word', () => {
+    const e = interactionFromClick(q(MODAL, '#confirm'), 0);
+    expect(e?.context).toBe('로그인 모달');
+  });
+
+  it('derives the region name from a heading when no aria-label (form → 폼)', () => {
+    const html = '<form><legend>회원가입</legend><button id="go">확인</button></form>';
+    expect(interactionFromClick(q(html, '#go'), 0)?.context).toBe('회원가입 폼');
+  });
+
+  it('collects nearby texts in the same region, excluding the clicked element itself', () => {
+    const e = interactionFromClick(q(MODAL, '#confirm'), 0);
+    expect(e?.nearby).toContain('로그인');
+    expect(e?.nearby).toContain('비밀번호 찾기');
+    expect(e?.nearby).toContain('회원가입');
+    expect(e?.nearby).not.toContain('확인'); // 클릭한 버튼 자신은 제외
+  });
+
+  it('returns null context and empty nearby when there is no meaningful region', () => {
+    const e = interactionFromClick(q('<button id="x">홀로</button>', '#x'), 0);
+    expect(e?.context).toBeNull();
+    expect(e?.nearby).toEqual([]);
   });
 });

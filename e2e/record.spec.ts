@@ -38,9 +38,12 @@ test('records click and input as INTERACTION messages, masking passwords', async
   await ready(page);
   await page.evaluate(() => {
     document.body.innerHTML =
-      '<button id="login">로그인</button>' +
+      '<form aria-label="회원가입">' +
+      '<h2>회원가입</h2>' +
+      '<button id="login" type="button" class="btn-primary">로그인</button>' +
       '<input id="email" name="email" type="text">' +
-      '<input id="pw" name="pw" type="password">';
+      '<input id="pw" name="pw" type="password">' +
+      '</form>';
   });
 
   const sw = await worker();
@@ -68,16 +71,17 @@ test('records click and input as INTERACTION messages, masking passwords', async
 
   const events = (await sw.evaluate(
     () => (globalThis as unknown as { __ix: unknown[] }).__ix,
-  )) as { kind: string; selector: string; label: string; value: string | null }[];
+  )) as { kind: string; selector: string; label: string; value: string | null; context: string | null }[];
 
   const click = events.find((e) => e.kind === 'click');
-  expect(click?.selector).toBe('#login');
+  expect(click?.selector).toBe('button#login.btn-primary[type=button]'); // 풍부한 시그니처
   expect(click?.label).toBe('로그인');
+  expect(click?.context).toBe('회원가입 폼'); // 영역 컨텍스트
 
-  const email = events.find((e) => e.kind === 'input' && e.selector === '#email');
+  const email = events.find((e) => e.kind === 'input' && e.selector === 'input#email[name=email]');
   expect(email?.value).toBe('a@b.com');
 
-  const pw = events.find((e) => e.kind === 'input' && e.selector === '#pw');
+  const pw = events.find((e) => e.kind === 'input' && e.selector === 'input#pw[name=pw]');
   expect(pw).toBeTruthy();
   expect(pw?.value).not.toContain('hunter2'); // password 마스킹
 });

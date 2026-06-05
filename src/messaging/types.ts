@@ -330,12 +330,16 @@ export type StepKind =
 /** content 가 보내는 원시 상호작용 이벤트 (id 부여 전) */
 export interface InteractionEvent {
   kind: StepKind;
-  /** 대상 요소 cssPath (navigate 면 null) */
+  /** 대상 요소 시그니처 (태그#id.클래스[name/type], navigate 면 null) */
   selector: string | null;
   /** 사람이 읽는 요소 라벨 (버튼 텍스트·input 이름 등, 없으면 null) */
   label: string | null;
   /** input/select 값, check 는 'on'|'off', navigate 는 URL (없으면 null) */
   value: string | null;
+  /** 요소가 속한 영역 이름 (모달·폼·섹션 등, '확인' 버튼 특정용, 없으면 null) */
+  context: string | null;
+  /** 같은 영역의 다른 라벨·버튼 텍스트 (요소 자신은 제외, 위치 단서) */
+  nearby: string[];
   at: number; // epoch ms
 }
 

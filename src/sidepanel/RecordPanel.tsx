@@ -99,6 +99,16 @@ export function RecordPanel({ recording, steps, injectReady, onToggleRecord, onC
               </span>
               <span style={{ wordBreak: 'break-all' }}>{describeStep(s)}</span>
               <span style={{ color: '#aaa', fontSize: 10, marginLeft: 6 }}>{fmtTime(s.at)}</span>
+              {s.selector && (
+                <div style={{ color: '#888', fontSize: 10, marginLeft: 36, wordBreak: 'break-all' }}>
+                  ↳ <code style={{ fontFamily: 'ui-monospace, monospace' }}>{s.selector}</code>
+                </div>
+              )}
+              {s.nearby.length > 0 && (
+                <div style={{ color: '#999', fontSize: 10, marginLeft: 36, wordBreak: 'break-all' }}>
+                  주변: {s.nearby.map((t) => `"${t}"`).join(', ')}
+                </div>
+              )}
             </li>
           ))}
         </ol>
