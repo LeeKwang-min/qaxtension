@@ -43,7 +43,7 @@ inject (MAIN world)  ──postMessage──▶  content (ISOLATED)  ──runti
 ## 상태
 
 - [x] **Phase 0 — 토대** (빌드, 사이드 패널 셸, inject→content→background→panel 메시지 파이프라인, 단위·e2e 테스트)
-- [ ] Phase 1 — 요소·스타일 검사기
+- [x] **Phase 1 — 요소·스타일 검사기** (호버+클릭 피커 → 색상·타이포그래피·박스모델·접근성(WCAG 대비비) 표시)
 - [ ] Phase 2 — API 모니터
 - [ ] Phase 3 — 콘솔/에러 수집
 - [ ] Phase 4 — 증거 & 리포트
