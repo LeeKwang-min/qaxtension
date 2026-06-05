@@ -33,6 +33,14 @@ function nonce(): string {
 chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   const tabId = sender.tab?.id;
   if (tabId == null) return;
+  // content 로부터 온 어떤 메시지든(NET_START·PING_REPLY·ELEMENT_PICKED 등) 주입이
+  // 살아있다는 증거다. 단일 INJECT_READY 핸드셰이크가 로더 경합으로 유실되거나
+  // 네비게이션 초기화로 readiness 가 stale 해져도, 후속 메시지로 복구한다.
+  // (네트워크는 잡히는데 헤더가 "대기 중" 으로 남는 모순을 방지)
+  if (!getTabState(tabId).injectReady) {
+    updateTabState(tabId, { injectReady: true, url: sender.tab?.url ?? getTabState(tabId).url });
+    pushState(tabId);
+  }
   switch (msg.type) {
     case 'INJECT_READY':
       updateTabState(tabId, { injectReady: true, url: sender.tab?.url ?? null });
