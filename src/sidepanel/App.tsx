@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PortMessage, TabSessionState, TabId } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
+import { ConsolePanel } from './ConsolePanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -59,6 +60,11 @@ export function App() {
     portRef.current.postMessage({ type: 'NETWORK_CLEAR', tabId } satisfies PortMessage);
   };
 
+  const clearConsole = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'CONSOLE_CLEAR', tabId } satisfies PortMessage);
+  };
+
   return (
     <div style={{ font: '13px system-ui', padding: 12 }}>
       <header style={{ marginBottom: 12 }}>
@@ -107,6 +113,12 @@ export function App() {
             requests={state?.requests ?? []}
             injectReady={state?.injectReady ?? false}
             onClear={clearNetwork}
+          />
+        ) : active === '콘솔' ? (
+          <ConsolePanel
+            logs={state?.logs ?? []}
+            injectReady={state?.injectReady ?? false}
+            onClear={clearConsole}
           />
         ) : (
           <p style={{ color: '#999' }}>{active} 패널 — 이후 Phase에서 구현</p>
