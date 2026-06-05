@@ -8,6 +8,7 @@ interface Props {
   hovered: ElementInfo | null;
   injectReady: boolean;
   onTogglePick: () => void;
+  onClearPicked: () => void;
   /** DOM 트리: path 키 → 자식들 (루트는 '') */
   treeChildren: Record<string, DomTreeNode[]>;
   /** 트리 remount 키 (페이지 바뀌면 확장 상태 초기화) */
@@ -64,6 +65,7 @@ export function InspectPanel({
   hovered,
   injectReady,
   onTogglePick,
+  onClearPicked,
   treeChildren,
   treeKey,
   onTreeExpand,
@@ -78,15 +80,22 @@ export function InspectPanel({
   const isPreview = !picked && display != null;
   return (
     <div>
-      <button
-        type="button"
-        aria-pressed={picking}
-        onClick={onTogglePick}
-        disabled={!injectReady}
-        style={{ fontWeight: picking ? 700 : 400 }}
-      >
-        {picking ? '선택 중지 (ESC)' : '요소 선택'}
-      </button>
+      <span style={{ display: 'inline-flex', gap: 6 }}>
+        <button
+          type="button"
+          aria-pressed={picking}
+          onClick={onTogglePick}
+          disabled={!injectReady}
+          style={{ fontWeight: picking ? 700 : 400 }}
+        >
+          {picking ? '선택 중지 (ESC)' : '요소 선택'}
+        </button>
+        {picked && (
+          <button type="button" onClick={onClearPicked}>
+            선택 해제
+          </button>
+        )}
+      </span>
 
       {!injectReady && (
         <p style={{ color: '#c00', fontSize: 12, marginTop: 12 }}>

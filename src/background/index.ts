@@ -291,6 +291,9 @@ chrome.runtime.onConnect.addListener((port) => {
       const cmd: RuntimeMessage = { type: 'PICK_STOP' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
       pushState(msg.tabId);
+    } else if (msg.type === 'CLEAR_PICKED') {
+      updateTabState(msg.tabId, { pickedElement: null, hoveredElement: null });
+      pushState(msg.tabId);
     } else if (msg.type === 'NETWORK_CLEAR') {
       updateTabState(msg.tabId, { requests: [] });
       pushState(msg.tabId);

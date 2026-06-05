@@ -410,6 +410,8 @@ export type PortMessage =
   // 패널 → background: 요소 피커 토글
   | { type: 'PICK_START'; tabId: TabId }
   | { type: 'PICK_STOP'; tabId: TabId }
+  // 패널 → background: 고정된 선택 요소 해제
+  | { type: 'CLEAR_PICKED'; tabId: TabId }
   // 패널 → background: 네트워크 기록 초기화
   | { type: 'NETWORK_CLEAR'; tabId: TabId }
   // 패널 → background: 콘솔 로그 초기화

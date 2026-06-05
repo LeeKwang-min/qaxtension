@@ -108,6 +108,11 @@ export function App() {
     portRef.current.postMessage({ type, tabId } satisfies PortMessage);
   };
 
+  const clearPicked = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'CLEAR_PICKED', tabId } satisfies PortMessage);
+  };
+
   const clearNetwork = () => {
     if (!portRef.current || tabId == null) return;
     portRef.current.postMessage({ type: 'NETWORK_CLEAR', tabId } satisfies PortMessage);
@@ -227,6 +232,7 @@ export function App() {
             hovered={state?.hoveredElement ?? null}
             injectReady={state?.injectReady ?? false}
             onTogglePick={togglePick}
+            onClearPicked={clearPicked}
             treeChildren={domTree}
             treeKey={state?.url ?? ''}
             onTreeExpand={requestTreeChildren}
