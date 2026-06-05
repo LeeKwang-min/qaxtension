@@ -317,6 +317,33 @@ export interface AuditResult {
   ranAt: number; // epoch ms
 }
 
+// ── Phase 6: 행동 기록 (recorder) ────────────────────────────
+
+/** 기록되는 상호작용 종류 */
+export type StepKind =
+  | 'click' // 버튼·링크·클릭형 컨트롤 클릭
+  | 'input' // 텍스트/textarea 입력
+  | 'select' // <select> 옵션 선택
+  | 'check' // checkbox/radio 체크 토글
+  | 'navigate'; // 페이지 이동(네비게이션)
+
+/** content 가 보내는 원시 상호작용 이벤트 (id 부여 전) */
+export interface InteractionEvent {
+  kind: StepKind;
+  /** 대상 요소 cssPath (navigate 면 null) */
+  selector: string | null;
+  /** 사람이 읽는 요소 라벨 (버튼 텍스트·input 이름 등, 없으면 null) */
+  label: string | null;
+  /** input/select 값, check 는 'on'|'off', navigate 는 URL (없으면 null) */
+  value: string | null;
+  at: number; // epoch ms
+}
+
+/** id 가 부여된 기록 스텝 (store/패널 표시 단위) */
+export interface Step extends InteractionEvent {
+  id: string;
+}
+
 /** 리포트 빌더 입력 (세션 스냅샷) */
 export interface ReportInput {
   generatedAt: number; // epoch ms
@@ -407,7 +434,12 @@ export type RuntimeMessage =
   // background → content: 경로로 요소 검사 (트리에서 선택)
   | { type: 'INSPECT_PATH'; path: number[] }
   // background → content: 경로 요소 하이라이트 (path=null 이면 숨김)
-  | { type: 'HIGHLIGHT_PATH'; path: number[] | null };
+  | { type: 'HIGHLIGHT_PATH'; path: number[] | null }
+  // background → content: 행동 기록 시작/중지 (capture-phase 리스너 무장/해제)
+  | { type: 'RECORD_START' }
+  | { type: 'RECORD_STOP' }
+  // content → background: 기록된 상호작용 한 건
+  | { type: 'INTERACTION'; event: InteractionEvent };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -429,6 +461,10 @@ export interface TabSessionState {
   audit: AuditResult | null;
   /** 네트워크 캡처 일시중지 여부 (true 면 새 요청을 쌓지 않음) */
   networkPaused: boolean;
+  /** 행동 기록 진행 여부 (네비게이션을 건너 유지됨) */
+  recording: boolean;
+  /** 기록된 재현 절차 스텝 (네비게이션을 건너 누적) */
+  steps: Step[];
   updatedAt: number;
 }
 
@@ -447,6 +483,10 @@ export type PortMessage =
   | { type: 'CONSOLE_CLEAR'; tabId: TabId }
   // 패널 → background: 네트워크 캡처 일시중지/재개
   | { type: 'NETWORK_SET_PAUSED'; tabId: TabId; paused: boolean }
+  // 패널 → background: 행동 기록 시작/중지
+  | { type: 'RECORD_SET_ACTIVE'; tabId: TabId; active: boolean }
+  // 패널 → background: 기록된 스텝 초기화
+  | { type: 'RECORD_CLEAR'; tabId: TabId }
   // 패널 → background: 보이는 영역 스크린샷 캡처 요청
   | { type: 'CAPTURE_SCREENSHOT'; tabId: TabId }
   // background → 패널: 스크린샷 결과 (단발성, 대용량이라 state 에 싣지 않음)

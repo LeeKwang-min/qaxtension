@@ -19,6 +19,8 @@ describe('tab session store', () => {
     expect(s.networkPaused).toBe(false);
     expect(s.hoveredElement).toBeNull();
     expect(s.perfResources).toEqual([]);
+    expect(s.recording).toBe(false);
+    expect(s.steps).toEqual([]);
   });
 
   it('merges partial patches and keeps tabId fixed', () => {

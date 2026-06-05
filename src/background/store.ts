@@ -17,6 +17,8 @@ function createDefault(tabId: TabId): TabSessionState {
     env: null,
     audit: null,
     networkPaused: false,
+    recording: false,
+    steps: [],
     updatedAt: Date.now(),
   };
 }
