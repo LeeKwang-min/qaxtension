@@ -9,7 +9,7 @@ export default defineManifest({
   action: { default_title: 'QA Companion' },
   background: { service_worker: 'src/background/index.ts', type: 'module' },
   side_panel: { default_path: 'src/sidepanel/index.html' },
-  permissions: ['sidePanel', 'storage', 'tabs', 'scripting'],
+  permissions: ['sidePanel', 'storage', 'tabs', 'scripting', 'webRequest'],
   host_permissions: ['<all_urls>'],
   content_scripts: [
     {

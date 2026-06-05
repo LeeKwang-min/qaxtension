@@ -1,6 +1,6 @@
 import { getTabState, updateTabState, clearTabState } from './store';
-import type { RuntimeMessage, PortMessage, TabId } from '../messaging/types';
-import { recordFromStart, applyEnd, pushBounded } from '../capture/network';
+import type { RuntimeMessage, PortMessage, TabId, WebReqEnd } from '../messaging/types';
+import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/network';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -153,3 +153,43 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   pendingNonces.delete(tabId);
   panelPorts.delete(tabId);
 });
+
+// ── webRequest 보조 소스 (소스 b) ──────────────────────────
+// fetch/XHR 후킹(소스 a)이 못 보는 실패(CORS 차단·네트워크 오류·리다이렉트)와
+// 빈 상태코드를 보완한다. inject 와 같은 범위만 듣도록 type 을 xmlhttprequest 로 제한.
+// (본문은 webRequest 로 못 읽으므로 status/error/timing/fromCache 만 병합)
+const WEBREQ_FILTER: chrome.webRequest.RequestFilter = {
+  urls: ['<all_urls>'],
+  types: ['xmlhttprequest'],
+};
+
+function mergeWebReqIntoTab(tabId: number, wr: WebReqEnd): void {
+  if (tabId < 0) return; // 탭에 속하지 않은 요청(백그라운드 prefetch 등) 무시
+  const state = getTabState(tabId);
+  updateTabState(tabId, { requests: mergeWebReq(state.requests, wr) });
+  pushState(tabId);
+}
+
+chrome.webRequest.onCompleted.addListener((d) => {
+  mergeWebReqIntoTab(d.tabId, {
+    requestId: d.requestId,
+    method: d.method,
+    url: d.url,
+    timeStamp: d.timeStamp,
+    status: d.statusCode,
+    error: null,
+    fromCache: d.fromCache,
+  });
+}, WEBREQ_FILTER);
+
+chrome.webRequest.onErrorOccurred.addListener((d) => {
+  mergeWebReqIntoTab(d.tabId, {
+    requestId: d.requestId,
+    method: d.method,
+    url: d.url,
+    timeStamp: d.timeStamp,
+    status: null,
+    error: d.error,
+    fromCache: d.fromCache,
+  });
+}, WEBREQ_FILTER);
