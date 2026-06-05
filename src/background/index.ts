@@ -131,6 +131,35 @@ async function resizeToViewport(tabId: TabId, presetW: number, presetH: number):
   await chrome.windows.update(tab.windowId, { width, height, state: 'normal' });
 }
 
+/**
+ * content(ISOLATED) 스크립트를 강제 재주입한다. 확장 설치/리로드 전에 이미 열려
+ * 있던 탭처럼 content 가 없는 페이지를 복구하는 용도. content 가 다시 실행되면
+ * 스스로 RESYNC 를 발신해 살아있는 inject 를 깨운다.
+ *
+ * MAIN world(inject) 는 CRXJS 로더가 상대경로 import 라 executeScript 재주입 시
+ * 깨지므로 제외한다(content 의 requestResync 가 기존 inject 를 깨우는 것으로 대체).
+ * 이미 주입된 탭은 ESM 모듈 캐시로 무해한 no-op 이며, 재구독+RESYNC 가 상태를 복구한다.
+ */
+async function reinject(tabId: TabId): Promise<void> {
+  const scripts = chrome.runtime.getManifest().content_scripts ?? [];
+  for (const cs of scripts) {
+    // @types/chrome 의 manifest 타입엔 world 가 없어 런타임 값으로 읽는다
+    if ((cs as { world?: string }).world === 'MAIN') continue;
+    const files = cs.js ?? [];
+    if (files.length === 0) continue;
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId, allFrames: false },
+        files,
+        injectImmediately: true,
+      });
+    } catch (e) {
+      // chrome:// 등 주입 불가 페이지 — 조용히 무시
+      console.debug('[qaxtension] executeScript skipped:', e);
+    }
+  }
+}
+
 // content script → background
 chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   const tabId = sender.tab?.id;
@@ -267,6 +296,10 @@ chrome.runtime.onConnect.addListener((port) => {
       // 페이지 뷰포트가 정확히 프리셋이 되도록 창을 리사이즈 (반응형 점검, 비파괴적)
       void resizeToViewport(msg.tabId, msg.width, msg.height).catch((e: unknown) =>
         console.debug('[qaxtension] resizeToViewport failed:', e),
+      );
+    } else if (msg.type === 'REINJECT') {
+      void reinject(msg.tabId).catch((e: unknown) =>
+        console.debug('[qaxtension] reinject failed:', e),
       );
     }
   });

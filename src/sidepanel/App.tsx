@@ -19,6 +19,8 @@ export function App() {
   const [collectingEnv, setCollectingEnv] = useState(false);
   const [runningAudit, setRunningAudit] = useState(false);
   const portRef = useRef<chrome.runtime.Port | null>(null);
+  // 재연결 버튼이 호출하는 함수 (effect 내부에서 주입). reinject=true 면 강제 재주입.
+  const reconnectRef = useRef<(reinject: boolean) => void>(() => {});
 
   // env 가 갱신되면 수집 중 표시 해제
   useEffect(() => {
@@ -32,15 +34,20 @@ export function App() {
 
   useEffect(() => {
     // `cancelled` 는 cleanup 이후 async .then() 이 실행되는 것을 막는다.
-    // React 18 StrictMode 에선 dev 에서 effect/cleanup 가 두 번 도는데,
-    // 이 플래그가 첫 .then() 해석을 no-op 으로 만든다.
     let cancelled = false;
-    let port: chrome.runtime.Port | undefined;
 
-    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+    // 현재 활성 탭에 (재)연결한다. 탭 전환·SW 재시작 시 재호출돼 패널이 항상
+    // "지금 보고 있는 탭" 을 따라가도록 한다. reinject=true 면 content 강제 재주입.
+    const connect = async (reinject: boolean): Promise<void> => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (cancelled || tab?.id == null) return;
+      // 기존 포트 정리 (onDisconnect 가 상태를 비우지 않도록 ref 를 먼저 끊는다)
+      const prev = portRef.current;
+      portRef.current = null;
+      prev?.disconnect();
+
       setTabId(tab.id);
-      port = chrome.runtime.connect({ name: 'qaxtension-panel' });
+      const port = chrome.runtime.connect({ name: 'qaxtension-panel' });
       portRef.current = port;
       port.onMessage.addListener((msg: PortMessage) => {
         if (msg.type === 'STATE_UPDATE') setState(msg.state);
@@ -51,7 +58,8 @@ export function App() {
         }
       });
       port.onDisconnect.addListener(() => {
-        // 서비스 워커가 종료/재시작되면 포트가 끊긴다 → 연결 끊김을 정직하게 표시
+        // 우리가 교체한 옛 포트의 끊김이면 무시 (재연결 race 방지)
+        if (portRef.current !== port) return;
         portRef.current = null;
         setState(null);
         setCapturing(false);
@@ -59,11 +67,25 @@ export function App() {
         setRunningAudit(false);
       });
       port.postMessage({ type: 'SUBSCRIBE', tabId: tab.id } satisfies PortMessage);
-    });
+      if (reinject) port.postMessage({ type: 'REINJECT', tabId: tab.id } satisfies PortMessage);
+    };
+
+    reconnectRef.current = (reinject: boolean) => void connect(reinject);
+    void connect(false);
+
+    // 활성 탭/창이 바뀌면 그 탭으로 자동 재구독 (껏다 켤 필요 없이 따라감)
+    const onActivated = () => void connect(false);
+    const onFocusChanged = (winId: number) => {
+      if (winId !== chrome.windows.WINDOW_ID_NONE) void connect(false);
+    };
+    chrome.tabs.onActivated.addListener(onActivated);
+    chrome.windows.onFocusChanged.addListener(onFocusChanged);
 
     return () => {
       cancelled = true;
-      port?.disconnect();
+      chrome.tabs.onActivated.removeListener(onActivated);
+      chrome.windows.onFocusChanged.removeListener(onFocusChanged);
+      portRef.current?.disconnect();
       portRef.current = null;
     };
   }, []);
@@ -127,10 +149,13 @@ export function App() {
         <div style={{ fontSize: 11, color: '#666', wordBreak: 'break-all' }}>
           {state?.url ?? ''}
         </div>
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
           <button onClick={ping}>Ping</button>
+          <button onClick={() => reconnectRef.current(true)} title="현재 탭에 다시 연결하고 검사 기능을 재주입합니다">
+            재연결
+          </button>
           {state?.lastPingNonce && (
-            <span data-testid="pong" style={{ marginLeft: 8 }}>
+            <span data-testid="pong" style={{ marginLeft: 2 }}>
               pong: {state.lastPingNonce}
             </span>
           )}

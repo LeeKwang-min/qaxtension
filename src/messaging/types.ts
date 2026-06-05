@@ -394,4 +394,6 @@ export type PortMessage =
   | { type: 'RUN_AUDIT'; tabId: TabId }
   // 패널 → background: 반응형 프리셋으로 윈도우 리사이즈
   | { type: 'RESIZE_WINDOW'; tabId: TabId; width: number; height: number }
+  // 패널 → background: content/inject 강제 재주입 (탭 전환·SPA·설치 전 로드 복구)
+  | { type: 'REINJECT'; tabId: TabId }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
