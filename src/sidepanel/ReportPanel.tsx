@@ -8,6 +8,7 @@ import type {
 } from '../messaging/types';
 import { buildReport } from '../report/builder';
 import { buildZip, type ZipFile } from '../report/zip';
+import { MarkdownPreview } from './MarkdownPreview';
 
 interface Props {
   env: EnvInfo | null;
@@ -109,6 +110,7 @@ export function ReportPanel({
   const [color, setColor] = useState<string>(COLORS[0]);
   const [drag, setDrag] = useState<Shape | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
 
   // 새 스크린샷이 오면 주석 초기화
   useEffect(() => {
@@ -327,23 +329,36 @@ export function ReportPanel({
           <button type="button" onClick={downloadZip}>.zip 다운로드</button>
         </div>
 
-        <details style={{ marginTop: 10 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 12 }}>마크다운 미리보기</summary>
-          <pre
-            data-testid="md-preview"
-            style={{
-              marginTop: 6,
-              padding: 8,
-              background: '#f6f6f6',
-              fontSize: 10,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              maxHeight: 300,
-              overflow: 'auto',
-            }}
-          >
-            {markdown}
-          </pre>
+        <details style={{ marginTop: 10 }} open>
+          <summary style={{ cursor: 'pointer', fontSize: 12 }}>리포트 미리보기</summary>
+          <div style={{ marginTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => setShowRaw((v) => !v)}
+              style={{ fontSize: 11, marginBottom: 6 }}
+            >
+              {showRaw ? '미리보기 보기' : '원본(마크다운) 보기'}
+            </button>
+            {showRaw ? (
+              <pre
+                data-testid="md-raw"
+                style={{
+                  margin: 0,
+                  padding: 8,
+                  background: '#f6f6f6',
+                  fontSize: 10,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  maxHeight: 320,
+                  overflow: 'auto',
+                }}
+              >
+                {markdown}
+              </pre>
+            ) : (
+              <MarkdownPreview markdown={markdown} />
+            )}
+          </div>
         </details>
       </section>
     </div>

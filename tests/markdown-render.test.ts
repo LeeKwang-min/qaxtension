@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseInline, parseBlocks } from '../src/report/markdown-render';
+import { buildMarkdown } from '../src/report/builder';
+import type { ReportInput } from '../src/messaging/types';
 
 describe('parseInline', () => {
   it('returns a single text token for plain text', () => {
@@ -85,6 +87,58 @@ describe('parseBlocks', () => {
     const t = blocks[0] as { rows: { value: string }[][][] };
     expect(t.rows[0][0][0].value).toBe('a=1|2');
   });
+  it('renders builder output: every section heading becomes a heading block', () => {
+    const input: ReportInput = {
+      generatedAt: 1717574400000,
+      env: {
+        url: 'https://example.com',
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        platform: 'MacIntel',
+        os: 'macOS',
+        language: 'ko-KR',
+        viewport: { width: 1280, height: 720, dpr: 2 },
+        screen: { width: 2560, height: 1440 },
+        loginGuess: null,
+        collectedAt: 1717574400000,
+      },
+      pickedElement: null,
+      requests: [
+        {
+          id: 'bad',
+          source: 'fetch',
+          method: 'POST',
+          url: 'https://api/login?x=1|2',
+          status: 500,
+          statusText: 'Error',
+          ok: false,
+          error: null,
+          startedAt: 1717574400000,
+          durationMs: 120,
+          requestBody: null,
+          responseBody: null,
+          fromCache: null,
+          webReqId: null,
+        },
+      ],
+      logs: [],
+      screenshot: null,
+    };
+    const blocks = parseBlocks(buildMarkdown(input));
+    const headings = blocks
+      .filter((b) => b.type === 'heading')
+      .map((b) => (b as { inlines: { value: string }[] }).inlines.map((t) => t.value).join(''));
+    expect(headings).toContain('버그 리포트');
+    expect(headings).toContain('환경');
+    expect(headings).toContain('실패한 API (1건)');
+    // 실패 표가 table 블록으로 파싱되고 escape 된 파이프가 복원됨
+    const table = blocks.find((b) => b.type === 'table') as
+      | { rows: { value: string }[][][] }
+      | undefined;
+    expect(table).toBeDefined();
+    const urlCell = table!.rows[0].map((cell) => cell.map((t) => t.value).join('')).join(' ');
+    expect(urlCell).toContain('https://api/login?x=1|2');
+  });
+
   it('parses a full report shape without throwing', () => {
     const md = [
       '# 버그 리포트',
