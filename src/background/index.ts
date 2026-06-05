@@ -4,6 +4,7 @@ import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/
 import { recordFromLog, pushLog } from '../capture/console';
 import { checkLinks } from '../audit/link-check';
 import { toStorageEntries, type CookieLike } from '../audit/storage';
+import { computeWindowSize } from '../audit/responsive';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -102,6 +103,32 @@ async function finishAudit(tabId: TabId, url: string | null, raw: AuditRaw): Pro
   };
   updateTabState(tabId, { audit: result });
   pushState(tabId);
+}
+
+/**
+ * 페이지 뷰포트가 정확히 프리셋 크기가 되도록 대상 창을 리사이즈한다.
+ * 사이드패널·크롬 UI 가 창 전체에 포함되므로, 현재 innerWidth/innerHeight 를
+ * 실측해 오버헤드(창 전체 - 뷰포트)를 프리셋에 더해준다. (debugger 배너 없이 정확)
+ */
+async function resizeToViewport(tabId: TabId, presetW: number, presetH: number): Promise<void> {
+  const tab = await chrome.tabs.get(tabId);
+  if (tab.windowId == null) return;
+  const win = await chrome.windows.get(tab.windowId);
+  if (win.width == null || win.height == null) return;
+
+  // 페이지 뷰포트 실측 (scripting 권한 — 기존)
+  const [inj] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => ({ iw: window.innerWidth, ih: window.innerHeight }),
+  });
+  const measured = inj?.result as { iw: number; ih: number } | undefined;
+  if (!measured) return;
+
+  const { width, height } = computeWindowSize(
+    { width: presetW, height: presetH },
+    { winWidth: win.width, winHeight: win.height, innerWidth: measured.iw, innerHeight: measured.ih },
+  );
+  await chrome.windows.update(tab.windowId, { width, height, state: 'normal' });
 }
 
 // content script → background
@@ -237,14 +264,10 @@ chrome.runtime.onConnect.addListener((port) => {
       const cmd: RuntimeMessage = { type: 'RUN_AUDIT' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     } else if (msg.type === 'RESIZE_WINDOW') {
-      // 대상 탭의 윈도우를 프리셋 크기로 리사이즈 (반응형 점검, 비파괴적)
-      void chrome.tabs
-        .get(msg.tabId)
-        .then((tab) => {
-          if (tab.windowId == null) return;
-          return chrome.windows.update(tab.windowId, { width: msg.width, height: msg.height });
-        })
-        .catch((e: unknown) => console.debug('[qaxtension] windows.update failed:', e));
+      // 페이지 뷰포트가 정확히 프리셋이 되도록 창을 리사이즈 (반응형 점검, 비파괴적)
+      void resizeToViewport(msg.tabId, msg.width, msg.height).catch((e: unknown) =>
+        console.debug('[qaxtension] resizeToViewport failed:', e),
+      );
     }
   });
 

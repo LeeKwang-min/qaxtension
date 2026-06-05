@@ -78,7 +78,8 @@ export function AuditPanel({ audit, injectReady, running, onRunAudit, onResize }
           ))}
         </div>
         <p style={{ fontSize: 10, color: '#999', margin: '4px 0 0' }}>
-          현재 창을 해당 크기로 조정해 레이아웃 깨짐을 확인합니다.
+          사이드 패널을 포함한 브라우저 UI 폭을 보정해, 페이지 영역이 정확히 해당 크기가
+          되도록 창을 조정합니다.
         </p>
       </Section>
 

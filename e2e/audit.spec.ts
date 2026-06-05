@@ -10,6 +10,9 @@ let context: BrowserContext;
 test.beforeAll(async () => {
   context = await chromium.launchPersistentContext('', {
     headless: false,
+    // viewport:null → 페이지 뷰포트가 실제 창 크기를 따라감(리사이즈 보정 검증에 필요).
+    // 기본값은 고정 viewport 라 창을 줄여도 innerWidth 가 안 변한다.
+    viewport: null,
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
   });
 });
@@ -75,20 +78,41 @@ test('content runs audit and emits AUDIT_RESULT with a11y issues', async () => {
   expect(raw.ranAt).toBeGreaterThan(0);
 });
 
-// chrome.windows.update 로 창 리사이즈가 동작하는지 (반응형 프리셋 배선).
-test('windows.update resizes the window (responsive preset wired)', async () => {
+// 오버헤드 보정 리사이즈가 실제로 페이지 뷰포트를 프리셋에 맞추는지 검증.
+// (창 전체가 아니라 innerWidth 가 프리셋이 되어야 함 — 사이드패널/크롬 UI 보정)
+test('resize compensates chrome overhead so innerWidth matches the preset', async () => {
   const page = await context.newPage();
   await page.goto('https://example.com');
   await page.waitForLoadState('load');
   const sw = await worker();
 
-  const width = await sw.evaluate(async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const win = await chrome.windows.update(tab.windowId!, { width: 800, height: 700 });
-    return win.width;
-  });
+  const PRESET_W = 600;
+  const PRESET_H = 700;
 
-  // OS/크롬이 약간 보정할 수 있어 근사 비교
-  expect(width).toBeGreaterThan(600);
-  expect(width).toBeLessThan(1000);
+  // background 의 resizeToViewport 와 동일한 보정 로직을 SW 컨텍스트에서 수행
+  await sw.evaluate(
+    async ({ pw, ph }) => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const win = await chrome.windows.get(tab.windowId!);
+      const [inj] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id! },
+        func: () => ({ iw: window.innerWidth, ih: window.innerHeight }),
+      });
+      const m = inj.result as { iw: number; ih: number };
+      const dw = Math.max(0, win.width! - m.iw);
+      const dh = Math.max(0, win.height! - m.ih);
+      await chrome.windows.update(tab.windowId!, {
+        width: pw + dw,
+        height: ph + dh,
+        state: 'normal',
+      });
+    },
+    { pw: PRESET_W, ph: PRESET_H },
+  );
+
+  // 리사이즈가 반영될 때까지 폴링 — 페이지 innerWidth 가 프리셋 근사여야 함
+  await expect.poll(() => page.evaluate(() => window.innerWidth), { timeout: 3000 }).toBeLessThan(PRESET_W + 30);
+  const innerWidth = await page.evaluate(() => window.innerWidth);
+  expect(innerWidth).toBeGreaterThan(PRESET_W - 30);
+  expect(innerWidth).toBeLessThan(PRESET_W + 30);
 });
