@@ -1,6 +1,7 @@
 import { INJECT_SOURCE, isCmdEnvelope } from '../messaging';
-import type { InjectEnvelope, NetStart, NetEnd } from '../messaging/types';
+import type { InjectEnvelope, NetStart, NetEnd, LogEvent, LogLevel } from '../messaging/types';
 import { captureBody } from '../capture/network';
+import { serializeArgs } from '../capture/console';
 
 type InjectWindow = Window & { __qaxtensionInjectReady?: boolean };
 const w = window as InjectWindow;
@@ -263,6 +264,100 @@ if (!w.__qaxtensionInjectReady) {
     } as typeof proto.send;
   } catch {
     /* XHR 후킹 실패 — 페이지 영향 없음 */
+  }
+
+  // ── 콘솔/에러 캡처 ────────────────────────────────────────
+  // console.error/warn·런타임 에러·미처리 프로미스 거부를 포착.
+  // 모든 후킹은 try/catch + 원본 호출 보존으로 페이지를 절대 깨뜨리지 않는다.
+  const postLog = (event: LogEvent): void => {
+    try {
+      post({ type: 'LOG', event });
+    } catch {
+      /* 발신 실패 무시 */
+    }
+  };
+  // 인자 중 첫 Error 의 스택을 추출(있으면)
+  const stackOf = (args: unknown[]): string | null => {
+    for (const a of args) {
+      if (a instanceof Error && typeof a.stack === 'string') return a.stack;
+    }
+    return null;
+  };
+
+  // console.error / console.warn 오버라이드 — 원본 보존
+  try {
+    const hook = (level: LogLevel, orig: (...a: unknown[]) => void) =>
+      function (this: unknown, ...args: unknown[]): void {
+        try {
+          postLog({
+            level,
+            source: 'console',
+            text: serializeArgs(args),
+            stack: stackOf(args),
+            location: null,
+            at: Date.now(),
+          });
+        } catch {
+          /* 무시 */
+        }
+        try {
+          orig.apply(this, args);
+        } catch {
+          /* 원본 호출 실패도 무시 (fail-open) */
+        }
+      };
+    const c = console as unknown as Record<string, (...a: unknown[]) => void>;
+    if (typeof c.error === 'function') c.error = hook('error', c.error.bind(console));
+    if (typeof c.warn === 'function') c.warn = hook('warn', c.warn.bind(console));
+  } catch {
+    /* console 후킹 실패 — 페이지 영향 없음 */
+  }
+
+  // 런타임 에러 (리소스 로딩 에러는 message 가 없어 제외 — 노이즈 방지)
+  try {
+    window.addEventListener(
+      'error',
+      (ev: ErrorEvent) => {
+        try {
+          if (!ev.message && !ev.error) return; // 리소스 에러 등 제외
+          postLog({
+            level: 'error',
+            source: 'onerror',
+            text: ev.message || String(ev.error),
+            stack: ev.error instanceof Error ? (ev.error.stack ?? null) : null,
+            location: ev.filename ? `${ev.filename}:${ev.lineno}:${ev.colno}` : null,
+            at: Date.now(),
+          });
+        } catch {
+          /* 무시 */
+        }
+      },
+      true,
+    );
+  } catch {
+    /* 무시 */
+  }
+
+  // 미처리 프로미스 거부
+  try {
+    window.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
+      try {
+        const reason: unknown = ev.reason;
+        postLog({
+          level: 'error',
+          source: 'unhandledrejection',
+          text:
+            reason instanceof Error ? `${reason.name}: ${reason.message}` : serializeArgs([reason]),
+          stack: reason instanceof Error ? (reason.stack ?? null) : null,
+          location: null,
+          at: Date.now(),
+        });
+      } catch {
+        /* 무시 */
+      }
+    });
+  } catch {
+    /* 무시 */
   }
 
   // content → inject 명령 수신 후 응답.
