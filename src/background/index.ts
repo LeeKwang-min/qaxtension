@@ -75,6 +75,8 @@ chrome.runtime.onConnect.addListener((port) => {
       set.add(port);
       port.postMessage({ type: 'STATE_UPDATE', state: getTabState(msg.tabId) } satisfies PortMessage);
       // 살아있는 content/inject 에게 현재 readiness 재확인 요청.
+      // (SW 재시작으로 store 가 비었거나 패널을 늦게 연 경우를 복구한다.
+      //  content 가 없으면 sendMessage 가 조용히 실패 → 상태는 그대로 '대기 중')
       const resync: RuntimeMessage = { type: 'RESYNC' };
       chrome.tabs.sendMessage(msg.tabId, resync).catch(() => {});
     } else if (msg.type === 'PING') {
