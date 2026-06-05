@@ -4,6 +4,7 @@ import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
 import { ReportPanel } from './ReportPanel';
+import { AuditPanel } from './AuditPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -16,12 +17,18 @@ export function App() {
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [collectingEnv, setCollectingEnv] = useState(false);
+  const [runningAudit, setRunningAudit] = useState(false);
   const portRef = useRef<chrome.runtime.Port | null>(null);
 
   // env 가 갱신되면 수집 중 표시 해제
   useEffect(() => {
     setCollectingEnv(false);
   }, [state?.env?.collectedAt]);
+
+  // audit 결과가 갱신되면 검사 중 표시 해제
+  useEffect(() => {
+    setRunningAudit(false);
+  }, [state?.audit?.ranAt]);
 
   useEffect(() => {
     // `cancelled` 는 cleanup 이후 async .then() 이 실행되는 것을 막는다.
@@ -49,6 +56,7 @@ export function App() {
         setState(null);
         setCapturing(false);
         setCollectingEnv(false);
+        setRunningAudit(false);
       });
       port.postMessage({ type: 'SUBSCRIBE', tabId: tab.id } satisfies PortMessage);
     });
@@ -93,6 +101,17 @@ export function App() {
     if (!portRef.current || tabId == null) return;
     setCollectingEnv(true);
     portRef.current.postMessage({ type: 'COLLECT_ENV', tabId } satisfies PortMessage);
+  };
+
+  const runAudit = () => {
+    if (!portRef.current || tabId == null) return;
+    setRunningAudit(true);
+    portRef.current.postMessage({ type: 'RUN_AUDIT', tabId } satisfies PortMessage);
+  };
+
+  const resizeWindow = (width: number, height: number) => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'RESIZE_WINDOW', tabId, width, height } satisfies PortMessage);
   };
 
   return (
@@ -149,6 +168,14 @@ export function App() {
             logs={state?.logs ?? []}
             injectReady={state?.injectReady ?? false}
             onClear={clearConsole}
+          />
+        ) : active === '검증' ? (
+          <AuditPanel
+            audit={state?.audit ?? null}
+            injectReady={state?.injectReady ?? false}
+            running={runningAudit}
+            onRunAudit={runAudit}
+            onResize={resizeWindow}
           />
         ) : active === '리포트' ? (
           <ReportPanel
