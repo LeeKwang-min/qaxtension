@@ -71,6 +71,16 @@ window.addEventListener('message', (ev: MessageEvent) => {
     void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });
+  } else if (payload.type === 'NET_START') {
+    const msg: RuntimeMessage = { type: 'NET_START', record: payload.record };
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
+  } else if (payload.type === 'NET_END') {
+    const msg: RuntimeMessage = { type: 'NET_END', id: payload.id, end: payload.end };
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   }
 });
 

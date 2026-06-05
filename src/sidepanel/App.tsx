@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PortMessage, TabSessionState, TabId } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
+import { NetworkPanel } from './NetworkPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -53,6 +54,11 @@ export function App() {
     portRef.current.postMessage({ type, tabId } satisfies PortMessage);
   };
 
+  const clearNetwork = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'NETWORK_CLEAR', tabId } satisfies PortMessage);
+  };
+
   return (
     <div style={{ font: '13px system-ui', padding: 12 }}>
       <header style={{ marginBottom: 12 }}>
@@ -95,6 +101,12 @@ export function App() {
             picked={state?.pickedElement ?? null}
             injectReady={state?.injectReady ?? false}
             onTogglePick={togglePick}
+          />
+        ) : active === '네트워크' ? (
+          <NetworkPanel
+            requests={state?.requests ?? []}
+            injectReady={state?.injectReady ?? false}
+            onClear={clearNetwork}
           />
         ) : (
           <p style={{ color: '#999' }}>{active} 패널 — 이후 Phase에서 구현</p>

@@ -12,6 +12,7 @@ describe('tab session store', () => {
     expect(s.lastPingNonce).toBeNull();
     expect(s.picking).toBe(false);
     expect(s.pickedElement).toBeNull();
+    expect(s.requests).toEqual([]);
   });
 
   it('merges partial patches and keeps tabId fixed', () => {
