@@ -105,3 +105,46 @@ test('picker emits ELEMENT_HOVERED on hover without clicking', async () => {
   )) as { selector: string };
   expect(info.selector).toBe('#hovertgt');
 });
+
+// DOM 트리: content 가 DOM_CHILDREN 에 자식 목록으로, INSPECT_PATH 에 선택으로 응답하는지.
+test('content serves DOM_CHILDREN and inspects by path', async () => {
+  const page = await context.newPage();
+  await page.goto('https://example.com');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionContent))
+    .toBe('ready');
+  await page.evaluate(() => {
+    document.body.innerHTML = '<header></header><main><section id="sec"></section></main>';
+  });
+
+  let [sw] = context.serviceWorkers();
+  if (!sw) sw = await context.waitForEvent('serviceworker');
+
+  // DOM_CHILDREN_RESULT 수신 → DOM_CHILDREN([]) 요청
+  const nodes = (await sw.evaluate(async () => {
+    const result = new Promise((resolve) => {
+      const listener = (msg: { type?: string; nodes?: unknown }) => {
+        if (msg?.type === 'DOM_CHILDREN_RESULT') {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve(msg.nodes);
+        }
+      };
+      chrome.runtime.onMessage.addListener(listener);
+    });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    void chrome.tabs.sendMessage(tab.id!, { type: 'DOM_CHILDREN', path: [] });
+    return result;
+  })) as { tagName: string; childElementCount: number; path: number[] }[];
+
+  expect(nodes.map((n) => n.tagName)).toEqual(['header', 'main']);
+  expect(nodes[1].childElementCount).toBe(1);
+
+  // INSPECT_PATH([1,0]) → section#sec 선택 마킹
+  await sw.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    void chrome.tabs.sendMessage(tab.id!, { type: 'INSPECT_PATH', path: [1, 0] });
+  });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionPicked), { timeout: 3000 })
+    .toBe('#sec');
+});

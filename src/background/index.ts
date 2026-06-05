@@ -232,6 +232,21 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       // 쿠키 보강 + 링크 HTTP 검증은 비동기 — 완료 시 store 갱신 후 push
       void finishAudit(tabId, sender.tab?.url ?? getTabState(tabId).url, msg.raw);
       break;
+    case 'DOM_CHILDREN_RESULT': {
+      // 트리 자식은 state 에 싣지 않고 단발성으로 해당 탭 패널들에 전달
+      const ports = panelPorts.get(tabId);
+      if (ports) {
+        const m: PortMessage = { type: 'DOM_CHILDREN_RESULT', path: msg.path, nodes: msg.nodes };
+        for (const p of ports) {
+          try {
+            p.postMessage(m);
+          } catch {
+            ports.delete(p);
+          }
+        }
+      }
+      break;
+    }
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -312,6 +327,12 @@ chrome.runtime.onConnect.addListener((port) => {
       void reinject(msg.tabId).catch((e: unknown) =>
         console.debug('[qaxtension] reinject failed:', e),
       );
+    } else if (msg.type === 'DOM_CHILDREN') {
+      const cmd: RuntimeMessage = { type: 'DOM_CHILDREN', path: msg.path };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'INSPECT_PATH') {
+      const cmd: RuntimeMessage = { type: 'INSPECT_PATH', path: msg.path };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     }
   });
 

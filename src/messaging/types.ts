@@ -310,6 +310,20 @@ export interface ReportAttachment {
   dataUrl: string;
 }
 
+// ── DOM 트리 뷰어 ────────────────────────────────────────────
+// (DomNode 타입은 inspect/dom-tree.ts 가 소유. 메시지에서는 구조적으로 호환되는
+//  형태를 직접 기술해 messaging 의 의존 방향을 깨지 않는다.)
+
+/** 경량 DOM 노드 (트리 표시용) */
+export interface DomTreeNode {
+  tagName: string;
+  id: string | null;
+  classList: string[];
+  childElementCount: number;
+  textPreview: string | null;
+  path: number[];
+}
+
 /** MAIN world(inject) → ISOLATED(content) 로 가는 메시지 봉투 */
 export interface InjectEnvelope {
   source: 'qaxtension-inject';
@@ -356,7 +370,13 @@ export type RuntimeMessage =
   // background → content: 자동 검증 실행 요청
   | { type: 'RUN_AUDIT' }
   // content → background: 자동 검증 원시 수집 결과
-  | { type: 'AUDIT_RESULT'; raw: AuditRaw };
+  | { type: 'AUDIT_RESULT'; raw: AuditRaw }
+  // background → content: DOM 트리 자식 조회
+  | { type: 'DOM_CHILDREN'; path: number[] }
+  // content → background: DOM 트리 자식 결과
+  | { type: 'DOM_CHILDREN_RESULT'; path: number[]; nodes: DomTreeNode[] }
+  // background → content: 경로로 요소 검사 (트리에서 선택)
+  | { type: 'INSPECT_PATH'; path: number[] };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -404,4 +424,10 @@ export type PortMessage =
   | { type: 'RESIZE_WINDOW'; tabId: TabId; width: number; height: number }
   // 패널 → background: content/inject 강제 재주입 (탭 전환·SPA·설치 전 로드 복구)
   | { type: 'REINJECT'; tabId: TabId }
+  // 패널 → background: DOM 트리 자식 조회
+  | { type: 'DOM_CHILDREN'; tabId: TabId; path: number[] }
+  // 패널 → background: 경로로 요소 검사 (트리에서 선택)
+  | { type: 'INSPECT_PATH'; tabId: TabId; path: number[] }
+  // background → 패널: DOM 트리 자식 결과 (단발성, state 에 싣지 않음)
+  | { type: 'DOM_CHILDREN_RESULT'; path: number[]; nodes: DomTreeNode[] }
   | { type: 'STATE_UPDATE'; state: TabSessionState };

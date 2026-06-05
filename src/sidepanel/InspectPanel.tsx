@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import type { ElementInfo } from '../messaging/types';
+import type { ElementInfo, DomTreeNode } from '../messaging/types';
+import { DomTree } from './DomTree';
 
 interface Props {
   picking: boolean;
@@ -7,6 +8,12 @@ interface Props {
   hovered: ElementInfo | null;
   injectReady: boolean;
   onTogglePick: () => void;
+  /** DOM 트리: path 키 → 자식들 (루트는 '') */
+  treeChildren: Record<string, DomTreeNode[]>;
+  /** 트리 remount 키 (페이지 바뀌면 확장 상태 초기화) */
+  treeKey: string;
+  onTreeExpand: (path: number[]) => void;
+  onTreeSelect: (path: number[]) => void;
 }
 
 function Swatch({ hex }: { hex: string }) {
@@ -45,7 +52,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function InspectPanel({ picking, picked, hovered, injectReady, onTogglePick }: Props) {
+export function InspectPanel({
+  picking,
+  picked,
+  hovered,
+  injectReady,
+  onTogglePick,
+  treeChildren,
+  treeKey,
+  onTreeExpand,
+  onTreeSelect,
+}: Props) {
   // 고정 선택(picked)이 우선, 없으면 호버 미리보기(picking 중에만)
   const display = picked ?? (picking ? hovered : null);
   const isPreview = !picked && display != null;
@@ -65,6 +82,13 @@ export function InspectPanel({ picking, picked, hovered, injectReady, onTogglePi
         <p style={{ color: '#c00', fontSize: 12, marginTop: 12 }}>
           페이지가 연결되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도하세요.
         </p>
+      )}
+
+      {injectReady && (
+        <section style={{ marginTop: 12 }}>
+          <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#333' }}>DOM 트리</h3>
+          <DomTree key={treeKey} childrenMap={treeChildren} onExpand={onTreeExpand} onSelect={onTreeSelect} />
+        </section>
       )}
 
       {injectReady && !display && (

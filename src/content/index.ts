@@ -5,6 +5,7 @@ import { buildElementInfo, type StyleLike } from '../inspect/element-info';
 import { collectEnv } from '../report/env';
 import { auditA11y, type ContrastStyle } from '../audit/a11y';
 import { collectResources } from '../audit/links';
+import { domChildren, elementByPath } from '../inspect/dom-tree';
 import type { AuditRaw, StorageItem } from '../messaging/types';
 
 // inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
@@ -153,6 +154,33 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       return;
     }
     const reply: RuntimeMessage = { type: 'AUDIT_RESULT', raw };
+    void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
+  } else if (msg.type === 'DOM_CHILDREN') {
+    let nodes;
+    try {
+      nodes = domChildren(document.body, msg.path);
+    } catch (e) {
+      console.debug('[qaxtension] domChildren failed:', e);
+      return;
+    }
+    const reply: RuntimeMessage = { type: 'DOM_CHILDREN_RESULT', path: msg.path, nodes };
+    void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
+  } else if (msg.type === 'INSPECT_PATH') {
+    const el = elementByPath(document.body, msg.path);
+    if (!el) return;
+    let info;
+    try {
+      info = buildElementInfo(el, styleOf(el));
+    } catch (e) {
+      console.debug('[qaxtension] inspect-by-path failed:', e);
+      return;
+    }
+    document.documentElement.dataset.qaxtensionPicked = info.selector;
+    const reply: RuntimeMessage = { type: 'ELEMENT_PICKED', info };
     void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });

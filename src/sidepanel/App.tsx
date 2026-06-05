@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PortMessage, TabSessionState, TabId } from '../messaging/types';
+import type { PortMessage, TabSessionState, TabId, DomTreeNode } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
@@ -18,6 +18,8 @@ export function App() {
   const [capturing, setCapturing] = useState(false);
   const [collectingEnv, setCollectingEnv] = useState(false);
   const [runningAudit, setRunningAudit] = useState(false);
+  // DOM 트리: path 키('a.b') → 직계 자식들 (루트는 '')
+  const [domTree, setDomTree] = useState<Record<string, DomTreeNode[]>>({});
   const portRef = useRef<chrome.runtime.Port | null>(null);
   // 재연결 버튼이 호출하는 함수 (effect 내부에서 주입). reinject=true 면 강제 재주입.
   const reconnectRef = useRef<(reinject: boolean) => void>(() => {});
@@ -55,6 +57,8 @@ export function App() {
           setCapturing(false);
           setScreenshotError(msg.error ?? null);
           if (msg.dataUrl) setScreenshot(msg.dataUrl);
+        } else if (msg.type === 'DOM_CHILDREN_RESULT') {
+          setDomTree((prev) => ({ ...prev, [msg.path.join('.')]: msg.nodes }));
         }
       });
       port.onDisconnect.addListener(() => {
@@ -145,6 +149,29 @@ export function App() {
     portRef.current.postMessage({ type: 'RESIZE_WINDOW', tabId, width, height } satisfies PortMessage);
   };
 
+  const requestTreeChildren = (path: number[]) => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'DOM_CHILDREN', tabId, path } satisfies PortMessage);
+  };
+
+  const inspectTreeNode = (path: number[]) => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'INSPECT_PATH', tabId, path } satisfies PortMessage);
+  };
+
+  // 페이지가 바뀌면(또는 연결 해제) 트리 캐시를 비운다 (DomTree 는 treeKey 로 remount)
+  useEffect(() => {
+    setDomTree({});
+  }, [state?.url]);
+
+  // 검사 탭에서 연결돼 있고 루트가 아직 없으면 DOM 트리 루트를 로드
+  useEffect(() => {
+    if (active === '검사' && state?.injectReady && tabId != null && !domTree['']) {
+      requestTreeChildren([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, state?.injectReady, tabId, domTree['']]);
+
   return (
     <div style={{ font: '13px system-ui', padding: 12 }}>
       <header style={{ marginBottom: 12 }}>
@@ -191,6 +218,10 @@ export function App() {
             hovered={state?.hoveredElement ?? null}
             injectReady={state?.injectReady ?? false}
             onTogglePick={togglePick}
+            treeChildren={domTree}
+            treeKey={state?.url ?? ''}
+            onTreeExpand={requestTreeChildren}
+            onTreeSelect={inspectTreeNode}
           />
         ) : active === '네트워크' ? (
           <NetworkPanel
