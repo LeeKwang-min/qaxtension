@@ -14,6 +14,7 @@ function createDefault(tabId: TabId): TabSessionState {
     logs: [],
     env: null,
     audit: null,
+    networkPaused: false,
     updatedAt: Date.now(),
   };
 }

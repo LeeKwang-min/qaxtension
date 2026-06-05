@@ -112,6 +112,15 @@ export function App() {
     portRef.current.postMessage({ type: 'CONSOLE_CLEAR', tabId } satisfies PortMessage);
   };
 
+  const toggleNetworkPause = () => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({
+      type: 'NETWORK_SET_PAUSED',
+      tabId,
+      paused: !(state?.networkPaused ?? false),
+    } satisfies PortMessage);
+  };
+
   const captureScreenshot = () => {
     if (!portRef.current || tabId == null) return;
     setScreenshotError(null);
@@ -186,7 +195,9 @@ export function App() {
           <NetworkPanel
             requests={state?.requests ?? []}
             injectReady={state?.injectReady ?? false}
+            paused={state?.networkPaused ?? false}
             onClear={clearNetwork}
+            onTogglePause={toggleNetworkPause}
           />
         ) : active === '콘솔' ? (
           <ConsolePanel

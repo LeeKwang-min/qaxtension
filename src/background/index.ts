@@ -197,6 +197,7 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       break;
     case 'NET_START': {
       const state = getTabState(tabId);
+      if (state.networkPaused) break; // 일시중지 중엔 새 요청을 쌓지 않음
       updateTabState(tabId, { requests: pushBounded(state.requests, recordFromStart(msg.record)) });
       pushState(tabId);
       break;
@@ -274,6 +275,9 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'CONSOLE_CLEAR') {
       updateTabState(msg.tabId, { logs: [] });
       pushState(msg.tabId);
+    } else if (msg.type === 'NETWORK_SET_PAUSED') {
+      updateTabState(msg.tabId, { networkPaused: msg.paused });
+      pushState(msg.tabId);
     } else if (msg.type === 'CAPTURE_SCREENSHOT') {
       // 보이는 영역 캡처는 대상 탭의 윈도우에서 수행한다.
       // (host 권한 <all_urls> 로 충분 — 별도 권한 불필요)
@@ -343,6 +347,7 @@ const WEBREQ_FILTER: chrome.webRequest.RequestFilter = {
 function mergeWebReqIntoTab(tabId: number, wr: WebReqEnd): void {
   if (tabId < 0) return; // 탭에 속하지 않은 요청(백그라운드 prefetch 등) 무시
   const state = getTabState(tabId);
+  if (state.networkPaused) return; // 일시중지 중엔 보조 소스도 쌓지 않음
   updateTabState(tabId, { requests: mergeWebReq(state.requests, wr) });
   pushState(tabId);
 }

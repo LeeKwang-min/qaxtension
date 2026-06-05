@@ -6,7 +6,9 @@ import { failedRequests, treemapCells } from '../capture/network';
 interface Props {
   requests: RequestRecord[];
   injectReady: boolean;
+  paused: boolean;
   onClear: () => void;
+  onTogglePause: () => void;
 }
 
 /** host 만 잘라 표시 (긴 URL 축약용) */
@@ -75,7 +77,7 @@ function BodyBlock({ title, body }: { title: string; body: RequestRecord['reques
   );
 }
 
-export function NetworkPanel({ requests, injectReady, onClear }: Props) {
+export function NetworkPanel({ requests, injectReady, paused, onClear, onTogglePause }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const fails = failedRequests(requests);
   const cells = treemapCells(requests);
@@ -96,9 +98,13 @@ export function NetworkPanel({ requests, injectReady, onClear }: Props) {
         <span style={{ fontSize: 12, color: '#666' }}>
           총 {requests.length}건 · 실패 {fails.length}건
         </span>
+        <button onClick={onTogglePause} aria-pressed={paused} style={{ fontWeight: paused ? 700 : 400 }}>
+          {paused ? '캡처 재개' : '캡처 중단'}
+        </button>
         <button onClick={onClear} disabled={requests.length === 0}>
           초기화
         </button>
+        {paused && <span style={{ fontSize: 11, color: '#c47f00' }}>● 일시중지됨</span>}
       </div>
 
       {requests.length === 0 && (

@@ -370,6 +370,8 @@ export interface TabSessionState {
   env: EnvInfo | null;
   /** 마지막 자동 검증 결과 (없으면 null) */
   audit: AuditResult | null;
+  /** 네트워크 캡처 일시중지 여부 (true 면 새 요청을 쌓지 않음) */
+  networkPaused: boolean;
   updatedAt: number;
 }
 
@@ -384,6 +386,8 @@ export type PortMessage =
   | { type: 'NETWORK_CLEAR'; tabId: TabId }
   // 패널 → background: 콘솔 로그 초기화
   | { type: 'CONSOLE_CLEAR'; tabId: TabId }
+  // 패널 → background: 네트워크 캡처 일시중지/재개
+  | { type: 'NETWORK_SET_PAUSED'; tabId: TabId; paused: boolean }
   // 패널 → background: 보이는 영역 스크린샷 캡처 요청
   | { type: 'CAPTURE_SCREENSHOT'; tabId: TabId }
   // background → 패널: 스크린샷 결과 (단발성, 대용량이라 state 에 싣지 않음)
