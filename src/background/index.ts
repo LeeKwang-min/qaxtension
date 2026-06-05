@@ -32,6 +32,28 @@ function nonce(): string {
   return Math.random().toString(36).slice(2);
 }
 
+/** 대상 탭의 윈도우에서 보이는 영역을 PNG dataURL 로 캡처 (실패 시 error 동봉) */
+async function captureVisible(tabId: TabId): Promise<{
+  type: 'SCREENSHOT_RESULT';
+  dataUrl: string | null;
+  error?: string;
+}> {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.windowId == null) {
+      return { type: 'SCREENSHOT_RESULT', dataUrl: null, error: '윈도우를 찾을 수 없습니다.' };
+    }
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+    return { type: 'SCREENSHOT_RESULT', dataUrl };
+  } catch (e) {
+    return {
+      type: 'SCREENSHOT_RESULT',
+      dataUrl: null,
+      error: e instanceof Error ? e.message : '스크린샷 캡처에 실패했습니다.',
+    };
+  }
+}
+
 // content script → background
 chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   const tabId = sender.tab?.id;
@@ -88,6 +110,10 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       pushState(tabId);
       break;
     }
+    case 'ENV_RESULT':
+      updateTabState(tabId, { env: msg.env });
+      pushState(tabId);
+      break;
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -138,6 +164,20 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'CONSOLE_CLEAR') {
       updateTabState(msg.tabId, { logs: [] });
       pushState(msg.tabId);
+    } else if (msg.type === 'CAPTURE_SCREENSHOT') {
+      // 보이는 영역 캡처는 대상 탭의 윈도우에서 수행한다.
+      // (host 권한 <all_urls> 로 충분 — 별도 권한 불필요)
+      void captureVisible(msg.tabId).then((res) => {
+        try {
+          port.postMessage(res satisfies PortMessage);
+        } catch {
+          // 패널이 이미 닫힘 — 무시
+        }
+      });
+    } else if (msg.type === 'COLLECT_ENV') {
+      // content 에 수집 요청 → content 가 ENV_RESULT 로 응답(store 경유 push)
+      const cmd: RuntimeMessage = { type: 'COLLECT_ENV' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     }
   });
 

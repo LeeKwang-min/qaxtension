@@ -2,6 +2,7 @@ import { CMD_SOURCE, isInjectEnvelope } from '../messaging';
 import type { CmdEnvelope, RuntimeMessage } from '../messaging/types';
 import { createPicker } from '../inspect/picker';
 import { buildElementInfo, type StyleLike } from '../inspect/element-info';
+import { collectEnv } from '../report/env';
 
 // inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
 function requestResync(): void {
@@ -103,6 +104,18 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     picker.start();
   } else if (msg.type === 'PICK_STOP') {
     picker.stop();
+  } else if (msg.type === 'COLLECT_ENV') {
+    let env;
+    try {
+      env = collectEnv(Date.now());
+    } catch (e) {
+      console.debug('[qaxtension] collectEnv failed:', e);
+      return;
+    }
+    const reply: RuntimeMessage = { type: 'ENV_RESULT', env };
+    void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   }
 });
 
