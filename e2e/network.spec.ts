@@ -73,6 +73,34 @@ test('inject hooks fetch and emits NET_START then NET_END', async () => {
   expect(typeof end.end.status === 'number' || typeof end.end.error === 'string').toBe(true);
 });
 
+// 상대 경로 fetch 가 절대 URL 로 정규화돼 NET_START 에 실리는지 (호스트 그룹핑용)
+test('inject normalizes relative fetch URLs to absolute', async () => {
+  const page = await context.newPage();
+  await page.goto('https://example.com');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionContent))
+    .toBe('ready');
+
+  await page.evaluate(() => {
+    (window as any).__qaxNetEvents = [];
+    window.addEventListener('message', (ev) => {
+      const d: any = ev.data;
+      if (ev.source === window && d && d.source === 'qaxtension-inject') {
+        if (d.payload?.type === 'NET_START') (window as any).__qaxNetEvents.push(d.payload);
+      }
+    });
+  });
+
+  // 상대 경로로 호출 — 인자는 '/' 이지만 절대 URL 로 기록돼야 한다
+  await page.evaluate(() => fetch('/').then((r) => r.text()).catch(() => {}));
+
+  const start = await page.evaluate(() => {
+    const ev = (window as any).__qaxNetEvents as any[];
+    return ev.find((e) => e.type === 'NET_START');
+  });
+  expect(start.record.url).toBe('https://example.com/');
+});
+
 // XHR 후킹도 동일 파이프라인으로 NET_START/END 를 내보내는지
 test('inject hooks XHR and emits NET_START then NET_END', async () => {
   const page = await context.newPage();
