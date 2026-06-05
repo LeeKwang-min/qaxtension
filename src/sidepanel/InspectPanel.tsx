@@ -4,6 +4,7 @@ import type { ElementInfo } from '../messaging/types';
 interface Props {
   picking: boolean;
   picked: ElementInfo | null;
+  injectReady: boolean;
   onTogglePick: () => void;
 }
 
@@ -43,19 +44,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function InspectPanel({ picking, picked, onTogglePick }: Props) {
+export function InspectPanel({ picking, picked, injectReady, onTogglePick }: Props) {
   return (
     <div>
       <button
         type="button"
         aria-pressed={picking}
         onClick={onTogglePick}
+        disabled={!injectReady}
         style={{ fontWeight: picking ? 700 : 400 }}
       >
         {picking ? '선택 중지 (ESC)' : '요소 선택'}
       </button>
 
-      {!picked && (
+      {!injectReady && (
+        <p style={{ color: '#c00', fontSize: 12, marginTop: 12 }}>
+          페이지가 연결되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도하세요.
+        </p>
+      )}
+
+      {injectReady && !picked && (
         <p style={{ color: '#999', fontSize: 12, marginTop: 12 }}>
           {picking ? '페이지에서 검사할 요소를 클릭하세요.' : '"요소 선택"을 눌러 시작하세요.'}
         </p>

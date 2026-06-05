@@ -87,9 +87,13 @@ chrome.runtime.onConnect.addListener((port) => {
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     } else if (msg.type === 'PICK_START') {
       updateTabState(msg.tabId, { picking: true, pickedElement: null });
-      const cmd: RuntimeMessage = { type: 'PICK_START' };
-      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
       pushState(msg.tabId);
+      const cmd: RuntimeMessage = { type: 'PICK_START' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {
+        // content 가 없으면(미주입 페이지) 피커를 켤 수 없으므로 picking 복구
+        updateTabState(msg.tabId, { picking: false });
+        pushState(msg.tabId);
+      });
     } else if (msg.type === 'PICK_STOP') {
       updateTabState(msg.tabId, { picking: false });
       const cmd: RuntimeMessage = { type: 'PICK_STOP' };

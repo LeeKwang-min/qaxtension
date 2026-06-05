@@ -15,7 +15,11 @@ function styleOf(el: Element): StyleLike {
   return {
     color: c.color,
     backgroundColor: c.backgroundColor,
-    borderColor: c.borderTopColor, // borderColor 단축은 빈 문자열일 수 있어 top 으로 대체
+    // 테두리가 없으면(폭 0 또는 none) 색이 무의미 → transparent 로 표기
+    borderColor:
+      c.borderTopStyle !== 'none' && parseFloat(c.borderTopWidth) > 0
+        ? c.borderTopColor
+        : 'transparent',
     fontFamily: c.fontFamily,
     fontSize: c.fontSize,
     fontWeight: c.fontWeight,
