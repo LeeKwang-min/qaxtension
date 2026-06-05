@@ -169,6 +169,51 @@ export interface ElementInfo {
   };
 }
 
+/** best-effort 로그인 사용자 추정 (보장값 아님) */
+export interface LoginGuess {
+  /** 발견된 키 (예: 'email', 'token') */
+  key: string;
+  /** 출처 ('localStorage' | 'cookie') */
+  from: 'localStorage' | 'cookie';
+  /** 값 (민감정보 보호 위해 절단) */
+  value: string;
+}
+
+/** 리포트용 환경정보 (best-effort, 페이지 컨텍스트에서 수집) */
+export interface EnvInfo {
+  url: string | null;
+  userAgent: string;
+  /** navigator.platform 등 원시 플랫폼 힌트 */
+  platform: string;
+  /** UA 에서 파싱한 사람이 읽는 OS 라벨 (예: 'macOS') */
+  os: string;
+  language: string;
+  viewport: { width: number; height: number; dpr: number };
+  screen: { width: number; height: number };
+  /** best-effort 로그인 추정 (없으면 null) */
+  loginGuess: LoginGuess | null;
+  collectedAt: number; // epoch ms
+}
+
+/** 리포트 빌더 입력 (세션 스냅샷) */
+export interface ReportInput {
+  generatedAt: number; // epoch ms
+  env: EnvInfo | null;
+  pickedElement: ElementInfo | null;
+  requests: RequestRecord[];
+  logs: LogRecord[];
+  /** 주석 적용된 스크린샷 dataURL (없으면 null) */
+  screenshot: string | null;
+}
+
+/** 리포트 첨부 파일 디스크립터 (zip 번들용) */
+export interface ReportAttachment {
+  /** 파일명 (예: 'screenshot.png') */
+  name: string;
+  /** image/png dataURL */
+  dataUrl: string;
+}
+
 /** MAIN world(inject) → ISOLATED(content) 로 가는 메시지 봉투 */
 export interface InjectEnvelope {
   source: 'qaxtension-inject';
@@ -205,7 +250,11 @@ export type RuntimeMessage =
   | { type: 'NET_START'; record: NetStart }
   | { type: 'NET_END'; id: string; end: NetEnd }
   // content → background: 콘솔/에러 로그 중계
-  | { type: 'LOG'; event: LogEvent };
+  | { type: 'LOG'; event: LogEvent }
+  // background → content: 환경정보 수집 요청
+  | { type: 'COLLECT_ENV' }
+  // content → background: 환경정보 수집 결과
+  | { type: 'ENV_RESULT'; env: EnvInfo };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -217,6 +266,8 @@ export interface TabSessionState {
   pickedElement: ElementInfo | null;
   requests: RequestRecord[];
   logs: LogRecord[];
+  /** 마지막으로 수집한 환경정보 (없으면 null) */
+  env: EnvInfo | null;
   updatedAt: number;
 }
 
@@ -231,4 +282,10 @@ export type PortMessage =
   | { type: 'NETWORK_CLEAR'; tabId: TabId }
   // 패널 → background: 콘솔 로그 초기화
   | { type: 'CONSOLE_CLEAR'; tabId: TabId }
+  // 패널 → background: 보이는 영역 스크린샷 캡처 요청
+  | { type: 'CAPTURE_SCREENSHOT'; tabId: TabId }
+  // background → 패널: 스크린샷 결과 (단발성, 대용량이라 state 에 싣지 않음)
+  | { type: 'SCREENSHOT_RESULT'; dataUrl: string | null; error?: string }
+  // 패널 → background: 환경정보 수집 요청
+  | { type: 'COLLECT_ENV'; tabId: TabId }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
