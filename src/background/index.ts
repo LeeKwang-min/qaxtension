@@ -1,5 +1,6 @@
 import { getTabState, updateTabState, clearTabState } from './store';
 import type { RuntimeMessage, PortMessage, TabId } from '../messaging/types';
+import { recordFromStart, applyEnd, pushBounded } from '../capture/network';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -55,6 +56,19 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       updateTabState(tabId, { picking: false });
       pushState(tabId);
       break;
+    case 'NET_START': {
+      const state = getTabState(tabId);
+      updateTabState(tabId, { requests: pushBounded(state.requests, recordFromStart(msg.record)) });
+      pushState(tabId);
+      break;
+    }
+    case 'NET_END': {
+      const state = getTabState(tabId);
+      const next = state.requests.map((r) => (r.id === msg.id ? applyEnd(r, msg.end) : r));
+      updateTabState(tabId, { requests: next });
+      pushState(tabId);
+      break;
+    }
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -98,6 +112,9 @@ chrome.runtime.onConnect.addListener((port) => {
       updateTabState(msg.tabId, { picking: false });
       const cmd: RuntimeMessage = { type: 'PICK_STOP' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+      pushState(msg.tabId);
+    } else if (msg.type === 'NETWORK_CLEAR') {
+      updateTabState(msg.tabId, { requests: [] });
       pushState(msg.tabId);
     }
   });
