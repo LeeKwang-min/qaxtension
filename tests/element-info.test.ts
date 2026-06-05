@@ -48,8 +48,8 @@ describe('cssPath', () => {
   });
   it('limits depth to 4 levels', () => {
     // 6단계 중첩 → 시작 요소 포함 최대 4단계만 (id 없음)
-    let root = document.createElement('div');
-    let cur = root;
+    const root = document.createElement('div');
+    let cur: HTMLElement = root;
     for (const tag of ['section', 'article', 'ul', 'li', 'a']) {
       const next = document.createElement(tag);
       cur.appendChild(next);
