@@ -3,6 +3,9 @@ import type { CmdEnvelope, RuntimeMessage } from '../messaging/types';
 import { createPicker } from '../inspect/picker';
 import { buildElementInfo, type StyleLike } from '../inspect/element-info';
 import { collectEnv } from '../report/env';
+import { auditA11y, type ContrastStyle } from '../audit/a11y';
+import { collectResources } from '../audit/links';
+import type { AuditRaw, StorageItem } from '../messaging/types';
 
 // inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
 function requestResync(): void {
@@ -116,8 +119,56 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });
+  } else if (msg.type === 'RUN_AUDIT') {
+    let raw: AuditRaw;
+    try {
+      raw = collectAuditRaw(Date.now());
+    } catch (e) {
+      console.debug('[qaxtension] collectAuditRaw failed:', e);
+      return;
+    }
+    const reply: RuntimeMessage = { type: 'AUDIT_RESULT', raw };
+    void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   }
 });
+
+// ── 자동 검증 수집 (페이지 컨텍스트) ───────────────────────────
+function contrastStyleOf(el: Element): ContrastStyle {
+  const c = getComputedStyle(el);
+  return {
+    color: c.color,
+    backgroundColor: c.backgroundColor,
+    fontSize: c.fontSize,
+    fontWeight: c.fontWeight,
+  };
+}
+
+function readLocalStorage(): StorageItem[] {
+  const out: StorageItem[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key == null) continue;
+      // 마스킹은 background(audit/storage)에서 일괄 적용 — 여기선 원시값만 전달
+      out.push({ key, value: localStorage.getItem(key) ?? '', masked: false });
+    }
+  } catch {
+    // SecurityError 등 best-effort
+  }
+  return out;
+}
+
+/** a11y·리소스·localStorage 를 한 번에 수집 (쿠키/링크검증은 background) */
+function collectAuditRaw(now: number): AuditRaw {
+  return {
+    a11y: auditA11y(document, contrastStyleOf),
+    resources: collectResources(document),
+    local: readLocalStorage(),
+    ranAt: now,
+  };
+}
 
 // 로드 시 inject 에게 현재 상태를 물어본다.
 // inject 의 spontaneous INJECT_READY 와 함께 두 방향(누가 먼저 로드되든)을 모두 커버해

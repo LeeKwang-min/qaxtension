@@ -1,7 +1,9 @@
 import { getTabState, updateTabState, clearTabState } from './store';
-import type { RuntimeMessage, PortMessage, TabId, WebReqEnd } from '../messaging/types';
+import type { RuntimeMessage, PortMessage, TabId, WebReqEnd, AuditRaw, AuditResult, LinkCheck } from '../messaging/types';
 import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/network';
 import { recordFromLog, pushLog } from '../capture/console';
+import { checkLinks } from '../audit/link-check';
+import { toStorageEntries, type CookieLike } from '../audit/storage';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -52,6 +54,54 @@ async function captureVisible(tabId: TabId): Promise<{
       error: e instanceof Error ? e.message : '스크린샷 캡처에 실패했습니다.',
     };
   }
+}
+
+/** fetch 로 검증할 리소스 URL 최대 개수 (외부 링크 폭주 방지) */
+const LINK_CHECK_CAP = 50;
+const LINK_CHECK_CONCURRENCY = 6;
+
+/** content 의 원시 audit 에 쿠키·링크검증을 보강해 store 에 저장한다. */
+async function finishAudit(tabId: TabId, url: string | null, raw: AuditRaw): Promise<void> {
+  // 쿠키 (httpOnly 포함) — 권한/URL 없으면 빈 배열
+  let cookies: CookieLike[] = [];
+  if (url) {
+    try {
+      const got = await chrome.cookies.getAll({ url });
+      cookies = got.map((c) => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        httpOnly: c.httpOnly,
+        secure: c.secure,
+      }));
+    } catch (e) {
+      console.debug('[qaxtension] cookies.getAll failed:', e);
+    }
+  }
+
+  // 링크 HTTP 검증 — 이미 깨진 것으로 확정된 이미지는 제외, 상한 적용
+  const toCheck = raw.resources
+    .filter((r) => !r.broken)
+    .map((r) => r.url)
+    .slice(0, LINK_CHECK_CAP);
+  let links: LinkCheck[];
+  try {
+    links = await checkLinks(toCheck, (u, init) => fetch(u, { ...init, redirect: 'follow' }), LINK_CHECK_CONCURRENCY);
+  } catch (e) {
+    console.debug('[qaxtension] checkLinks failed:', e);
+    links = [];
+  }
+
+  const result: AuditResult = {
+    a11y: raw.a11y,
+    resources: raw.resources,
+    links,
+    storage: toStorageEntries(raw.local, cookies),
+    ranAt: raw.ranAt,
+  };
+  updateTabState(tabId, { audit: result });
+  pushState(tabId);
 }
 
 // content script → background
@@ -113,6 +163,10 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     case 'ENV_RESULT':
       updateTabState(tabId, { env: msg.env });
       pushState(tabId);
+      break;
+    case 'AUDIT_RESULT':
+      // 쿠키 보강 + 링크 HTTP 검증은 비동기 — 완료 시 store 갱신 후 push
+      void finishAudit(tabId, sender.tab?.url ?? getTabState(tabId).url, msg.raw);
       break;
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
@@ -178,6 +232,19 @@ chrome.runtime.onConnect.addListener((port) => {
       // content 에 수집 요청 → content 가 ENV_RESULT 로 응답(store 경유 push)
       const cmd: RuntimeMessage = { type: 'COLLECT_ENV' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'RUN_AUDIT') {
+      // content 에 검증 실행 요청 → content 가 AUDIT_RESULT 로 응답 → finishAudit
+      const cmd: RuntimeMessage = { type: 'RUN_AUDIT' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'RESIZE_WINDOW') {
+      // 대상 탭의 윈도우를 프리셋 크기로 리사이즈 (반응형 점검, 비파괴적)
+      void chrome.tabs
+        .get(msg.tabId)
+        .then((tab) => {
+          if (tab.windowId == null) return;
+          return chrome.windows.update(tab.windowId, { width: msg.width, height: msg.height });
+        })
+        .catch((e: unknown) => console.debug('[qaxtension] windows.update failed:', e));
     }
   });
 

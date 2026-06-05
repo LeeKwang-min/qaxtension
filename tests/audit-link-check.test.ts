@@ -29,7 +29,7 @@ describe('checkLinks', () => {
 
   it('falls back to GET when HEAD yields 405/501', async () => {
     const methods: string[] = [];
-    const fetchFn = async (url: string, init?: { method?: string }) => {
+    const fetchFn = async (_url: string, init?: { method?: string }) => {
       methods.push(init?.method ?? 'GET');
       if (init?.method === 'HEAD') return res(405);
       return res(200);
