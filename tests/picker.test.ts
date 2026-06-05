@@ -49,6 +49,32 @@ describe('createPicker', () => {
     expect(document.querySelector('[data-qaxtension-overlay]')).toBeNull();
   });
 
+  it('invokes onHover when the hovered element changes, deduping same-element moves', () => {
+    const a = document.createElement('a');
+    const b = document.createElement('b');
+    document.body.append(a, b);
+    const onHover = vi.fn();
+    const picker = createPicker(() => {}, undefined, onHover);
+    picker.start();
+
+    a.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    a.dispatchEvent(new MouseEvent('mousemove', { bubbles: true })); // 같은 요소 → 무시
+    b.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+
+    expect(onHover.mock.calls.map((c) => c[0])).toEqual([a, b]);
+    picker.stop();
+  });
+
+  it('does not invoke onHover for its own overlay', () => {
+    const onHover = vi.fn();
+    const picker = createPicker(() => {}, undefined, onHover);
+    picker.start();
+    const overlay = document.querySelector('[data-qaxtension-overlay]') as HTMLElement;
+    overlay.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    expect(onHover).not.toHaveBeenCalled();
+    picker.stop();
+  });
+
   it('ignores its own overlay element as a pick target', () => {
     const onPick = vi.fn();
     const picker = createPicker(onPick);

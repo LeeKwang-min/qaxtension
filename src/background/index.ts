@@ -188,12 +188,19 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       break;
     }
     case 'ELEMENT_PICKED':
-      updateTabState(tabId, { pickedElement: msg.info, picking: false });
+      updateTabState(tabId, { pickedElement: msg.info, picking: false, hoveredElement: null });
       pushState(tabId);
       break;
     case 'PICK_CANCELLED':
-      updateTabState(tabId, { picking: false });
+      updateTabState(tabId, { picking: false, hoveredElement: null });
       pushState(tabId);
+      break;
+    case 'ELEMENT_HOVERED':
+      // picking 중일 때만 의미 있는 미리보기 (stale 호버 무시)
+      if (getTabState(tabId).picking) {
+        updateTabState(tabId, { hoveredElement: msg.info });
+        pushState(tabId);
+      }
       break;
     case 'NET_START': {
       const state = getTabState(tabId);
@@ -256,7 +263,7 @@ chrome.runtime.onConnect.addListener((port) => {
       const cmd: RuntimeMessage = { type: 'PING', nonce: n };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     } else if (msg.type === 'PICK_START') {
-      updateTabState(msg.tabId, { picking: true, pickedElement: null });
+      updateTabState(msg.tabId, { picking: true, pickedElement: null, hoveredElement: null });
       pushState(msg.tabId);
       const cmd: RuntimeMessage = { type: 'PICK_START' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {
@@ -265,7 +272,7 @@ chrome.runtime.onConnect.addListener((port) => {
         pushState(msg.tabId);
       });
     } else if (msg.type === 'PICK_STOP') {
-      updateTabState(msg.tabId, { picking: false });
+      updateTabState(msg.tabId, { picking: false, hoveredElement: null });
       const cmd: RuntimeMessage = { type: 'PICK_STOP' };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
       pushState(msg.tabId);

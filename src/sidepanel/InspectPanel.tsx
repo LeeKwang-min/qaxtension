@@ -4,6 +4,7 @@ import type { ElementInfo } from '../messaging/types';
 interface Props {
   picking: boolean;
   picked: ElementInfo | null;
+  hovered: ElementInfo | null;
   injectReady: boolean;
   onTogglePick: () => void;
 }
@@ -44,7 +45,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function InspectPanel({ picking, picked, injectReady, onTogglePick }: Props) {
+export function InspectPanel({ picking, picked, hovered, injectReady, onTogglePick }: Props) {
+  // 고정 선택(picked)이 우선, 없으면 호버 미리보기(picking 중에만)
+  const display = picked ?? (picking ? hovered : null);
+  const isPreview = !picked && display != null;
   return (
     <div>
       <button
@@ -63,52 +67,59 @@ export function InspectPanel({ picking, picked, injectReady, onTogglePick }: Pro
         </p>
       )}
 
-      {injectReady && !picked && (
+      {injectReady && !display && (
         <p style={{ color: '#999', fontSize: 12, marginTop: 12 }}>
-          {picking ? '페이지에서 검사할 요소를 클릭하세요.' : '"요소 선택"을 눌러 시작하세요.'}
+          {picking
+            ? '페이지에서 요소 위에 마우스를 올리면 정보가 표시되고, 클릭하면 고정됩니다.'
+            : '"요소 선택"을 눌러 시작하세요.'}
         </p>
       )}
 
-      {picked && (
+      {display && (
         <div style={{ marginTop: 12 }}>
+          {isPreview && (
+            <div style={{ fontSize: 11, color: '#c47f00', marginBottom: 2 }}>
+              호버 미리보기 · 클릭하면 고정
+            </div>
+          )}
           <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#0a58ca', wordBreak: 'break-all' }}>
-            {picked.selector}
+            {display.selector}
           </div>
-          {picked.text && (
-            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>"{picked.text}"</div>
+          {display.text && (
+            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>"{display.text}"</div>
           )}
 
           <Section title="색상">
-            <Row label="텍스트"><Swatch hex={picked.colors.color.hex} />{picked.colors.color.hex}</Row>
-            <Row label="배경"><Swatch hex={picked.colors.backgroundColor.hex} />{picked.colors.backgroundColor.hex}</Row>
-            <Row label="테두리"><Swatch hex={picked.colors.borderColor.hex} />{picked.colors.borderColor.hex}</Row>
+            <Row label="텍스트"><Swatch hex={display.colors.color.hex} />{display.colors.color.hex}</Row>
+            <Row label="배경"><Swatch hex={display.colors.backgroundColor.hex} />{display.colors.backgroundColor.hex}</Row>
+            <Row label="테두리"><Swatch hex={display.colors.borderColor.hex} />{display.colors.borderColor.hex}</Row>
           </Section>
 
           <Section title="타이포그래피">
-            <Row label="글꼴">{picked.typography.fontFamily}</Row>
-            <Row label="크기">{picked.typography.fontSize}</Row>
-            <Row label="굵기">{picked.typography.fontWeight}</Row>
-            <Row label="줄 높이">{picked.typography.lineHeight}</Row>
-            <Row label="자간">{picked.typography.letterSpacing}</Row>
+            <Row label="글꼴">{display.typography.fontFamily}</Row>
+            <Row label="크기">{display.typography.fontSize}</Row>
+            <Row label="굵기">{display.typography.fontWeight}</Row>
+            <Row label="줄 높이">{display.typography.lineHeight}</Row>
+            <Row label="자간">{display.typography.letterSpacing}</Row>
           </Section>
 
           <Section title="박스모델">
-            <Row label="크기">{picked.boxModel.width} × {picked.boxModel.height}</Row>
-            <Row label="여백(margin)">{picked.boxModel.margin}</Row>
-            <Row label="안쪽(padding)">{picked.boxModel.padding}</Row>
-            <Row label="모서리">{picked.boxModel.borderRadius}</Row>
-            <Row label="테두리">{picked.boxModel.border}</Row>
+            <Row label="크기">{display.boxModel.width} × {display.boxModel.height}</Row>
+            <Row label="여백(margin)">{display.boxModel.margin}</Row>
+            <Row label="안쪽(padding)">{display.boxModel.padding}</Row>
+            <Row label="모서리">{display.boxModel.borderRadius}</Row>
+            <Row label="테두리">{display.boxModel.border}</Row>
           </Section>
 
           <Section title="접근성">
             <Row label="대비비">
-              {picked.accessibility.contrast
-                ? `${picked.accessibility.contrast.ratio} (${picked.accessibility.contrast.level})`
+              {display.accessibility.contrast
+                ? `${display.accessibility.contrast.ratio} (${display.accessibility.contrast.level})`
                 : '계산 불가 (배경 투명)'}
             </Row>
-            <Row label="alt">{picked.accessibility.alt ?? '—'}</Row>
-            <Row label="role">{picked.accessibility.role ?? '—'}</Row>
-            <Row label="aria-label">{picked.accessibility.ariaLabel ?? '—'}</Row>
+            <Row label="alt">{display.accessibility.alt ?? '—'}</Row>
+            <Row label="role">{display.accessibility.role ?? '—'}</Row>
+            <Row label="aria-label">{display.accessibility.ariaLabel ?? '—'}</Row>
           </Section>
         </div>
       )}

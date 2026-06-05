@@ -38,6 +38,10 @@ function styleOf(el: Element): StyleLike {
   };
 }
 
+// 호버 통지 rAF 스로틀 상태
+let pendingHover: Element | null = null;
+let hoverRaf = 0;
+
 const picker = createPicker(
   (el) => {
     const info = buildElementInfo(el, styleOf(el));
@@ -53,6 +57,27 @@ const picker = createPicker(
     const msg: RuntimeMessage = { type: 'PICK_CANCELLED' };
     void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
+    });
+  },
+  // onHover: 호버 요소 정보를 실시간 전달 (rAF 로 프레임당 1회로 묶음)
+  (el) => {
+    pendingHover = el;
+    if (hoverRaf !== 0) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = 0;
+      const target = pendingHover;
+      pendingHover = null;
+      if (!target || !target.isConnected) return;
+      let info;
+      try {
+        info = buildElementInfo(target, styleOf(target));
+      } catch {
+        return;
+      }
+      const msg: RuntimeMessage = { type: 'ELEMENT_HOVERED', info };
+      void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+        console.debug('[qaxtension] content sendMessage failed:', e);
+      });
     });
   },
 );

@@ -342,6 +342,8 @@ export type RuntimeMessage =
   // content → background: 피커 결과
   | { type: 'ELEMENT_PICKED'; info: ElementInfo }
   | { type: 'PICK_CANCELLED' }
+  // content → background: 피커 호버 중인 요소 정보 (실시간 미리보기)
+  | { type: 'ELEMENT_HOVERED'; info: ElementInfo }
   // content → background: 네트워크 캡처 중계
   | { type: 'NET_START'; record: NetStart }
   | { type: 'NET_END'; id: string; end: NetEnd }
@@ -364,6 +366,8 @@ export interface TabSessionState {
   lastPingNonce: string | null;
   picking: boolean;
   pickedElement: ElementInfo | null;
+  /** 피커 호버 중인 요소 (picking 중 실시간 미리보기, 아니면 null) */
+  hoveredElement: ElementInfo | null;
   requests: RequestRecord[];
   logs: LogRecord[];
   /** 마지막으로 수집한 환경정보 (없으면 null) */

@@ -62,3 +62,46 @@ test('picker overlays, captures a clicked element, and records its selector', as
     await page.evaluate(() => !!document.querySelector('[data-qaxtension-overlay]')),
   ).toBe(false);
 });
+
+// 피커 호버 시 클릭 없이도 ELEMENT_HOVERED 가 발신되는지 (호버 미리보기 배선).
+test('picker emits ELEMENT_HOVERED on hover without clicking', async () => {
+  const page = await context.newPage();
+  await page.goto('https://example.com');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionContent))
+    .toBe('ready');
+  await page.evaluate(() => {
+    document.body.innerHTML = '<button id="hovertgt">호버대상</button>';
+  });
+
+  let [sw] = context.serviceWorkers();
+  if (!sw) sw = await context.waitForEvent('serviceworker');
+
+  // background 전역에 ELEMENT_HOVERED 수신 프로미스 설치
+  await sw.evaluate(() => {
+    (globalThis as unknown as { __hovered: Promise<unknown> }).__hovered = new Promise((resolve) => {
+      const listener = (msg: { type?: string; info?: unknown }) => {
+        if (msg?.type === 'ELEMENT_HOVERED') {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve(msg.info);
+        }
+      };
+      chrome.runtime.onMessage.addListener(listener);
+    });
+    void chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      for (const t of tabs) if (t.id != null) void chrome.tabs.sendMessage(t.id, { type: 'PICK_START' });
+    });
+  });
+
+  await expect
+    .poll(() => page.evaluate(() => !!document.querySelector('[data-qaxtension-overlay]')))
+    .toBe(true);
+
+  // 클릭하지 않고 호버만
+  await page.hover('#hovertgt');
+
+  const info = (await sw.evaluate(
+    () => (globalThis as unknown as { __hovered: Promise<unknown> }).__hovered,
+  )) as { selector: string };
+  expect(info.selector).toBe('#hovertgt');
+});

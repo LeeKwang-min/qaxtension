@@ -15,9 +15,11 @@ const OVERLAY_ATTR = 'data-qaxtension-overlay';
 export function createPicker(
   onPick: (el: Element) => void,
   onCancel?: () => void,
+  onHover?: (el: Element) => void,
 ): Picker {
   let overlay: HTMLElement | null = null;
   let active = false;
+  let lastHover: Element | null = null;
 
   const isOurs = (node: EventTarget | null): boolean =>
     node instanceof Element && node.hasAttribute(OVERLAY_ATTR);
@@ -35,6 +37,11 @@ export function createPicker(
     const t = e.target;
     if (!(t instanceof Element) || isOurs(t)) return;
     moveOverlay(t);
+    // 호버 요소가 바뀔 때만 통지 (같은 요소 위 이동은 무시 → getComputedStyle 비용 절감)
+    if (t !== lastHover) {
+      lastHover = t;
+      onHover?.(t);
+    }
   };
 
   const onClick = (e: MouseEvent): void => {
@@ -76,6 +83,7 @@ export function createPicker(
   function stop(): void {
     if (!active) return;
     active = false;
+    lastHover = null;
     document.removeEventListener('mousemove', onMove, true);
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('keydown', onKey, true);

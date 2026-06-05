@@ -188,6 +188,7 @@ export function App() {
           <InspectPanel
             picking={state?.picking ?? false}
             picked={state?.pickedElement ?? null}
+            hovered={state?.hoveredElement ?? null}
             injectReady={state?.injectReady ?? false}
             onTogglePick={togglePick}
           />
