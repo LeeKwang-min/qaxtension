@@ -6,6 +6,7 @@ import {
   pushStep,
   describeStep,
   buildStepsSection,
+  appendNavigate,
   labelOf,
   interactionFromClick,
   interactionFromChange,
@@ -95,6 +96,29 @@ describe('recorder — pushStep', () => {
     }
     expect(list).toHaveLength(MAX_STEPS);
     expect(list[0].id).toBe('c10');
+  });
+});
+
+describe('recorder — appendNavigate', () => {
+  it('appends a navigate step preserving prior steps', () => {
+    const prior = [step({ id: 'c', kind: 'click', label: '로그인' })];
+    const out = appendNavigate(prior, 'https://x.test/next', 'nav-1', 9);
+    expect(out).toHaveLength(2);
+    expect(out[0].id).toBe('c');
+    expect(out[1]).toMatchObject({ id: 'nav-1', kind: 'navigate', value: 'https://x.test/next', at: 9 });
+  });
+
+  it('dedupes a consecutive navigate to the same url (redirect chains)', () => {
+    let list = appendNavigate([], 'https://x.test', 'n1', 0);
+    list = appendNavigate(list, 'https://x.test', 'n2', 1);
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe('n1');
+  });
+
+  it('allows a navigate to a different url', () => {
+    let list = appendNavigate([], 'https://x.test/a', 'n1', 0);
+    list = appendNavigate(list, 'https://x.test/b', 'n2', 1);
+    expect(list.map((s) => s.value)).toEqual(['https://x.test/a', 'https://x.test/b']);
   });
 });
 

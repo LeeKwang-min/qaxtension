@@ -48,7 +48,7 @@ inject (MAIN world)  ──postMessage──▶  content (ISOLATED)  ──runti
 - [x] **Phase 3 — 콘솔/에러 수집** (console.error/warn·런타임 에러·미처리 프로미스 거부 후킹 → 레벨 필터·시각·스택·연속 병합)
 - [x] **Phase 4 — 증거 & 리포트** (보이는 영역 스크린샷+화살표/박스 주석, 환경정보(URL·OS·뷰포트·언어·로그인 best-effort 추정) 자동 수집, 검사 요소·실패 API·에러를 마크다운으로 묶어 클립보드 복사 / .md·.zip 다운로드 — 의존성 없는 store-only zip)
 - [x] **Phase 5 — 추가 자동 검증** (접근성/색 대비 점검, 깨진 이미지·링크(404) 스캔 — 이미지는 DOM·링크는 background fetch, 반응형 뷰포트 프리셋(`chrome.windows.update`), localStorage/쿠키 뷰어(httpOnly 포함 `chrome.cookies`, 민감키 마스킹))
-- [ ] Phase 6 — 행동 기록
+- [x] **Phase 6 — 행동 기록** (content(ISOLATED) capture-phase 리스너로 클릭·입력·네비게이션 기록 → 사람이 읽는 재현 절차로 자동 변환, 페이지 이동을 건너 이어 기록, password 마스킹, '기록' 탭 단계 목록 + 리포트 "## 재현 절차" 자동 첨부)
 
 ## 문서
 
@@ -59,3 +59,4 @@ inject (MAIN world)  ──postMessage──▶  content (ISOLATED)  ──runti
 - Phase 3 구현 계획: `docs/superpowers/plans/2026-06-05-phase3-console-errors.md`
 - Phase 4 구현 계획: `docs/superpowers/plans/2026-06-05-phase4-evidence-report.md`
 - Phase 5 구현 계획: `docs/superpowers/plans/2026-06-05-phase5-extra-audits.md`
+- Phase 6 구현 계획: `docs/superpowers/plans/2026-06-05-phase6-action-recorder.md`

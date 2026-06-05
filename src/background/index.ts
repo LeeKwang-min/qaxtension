@@ -2,7 +2,7 @@ import { getTabState, updateTabState, clearTabState } from './store';
 import type { RuntimeMessage, PortMessage, TabId, WebReqEnd, AuditRaw, AuditResult, LinkCheck } from '../messaging/types';
 import { recordFromStart, applyEnd, pushBounded, mergeWebReq } from '../capture/network';
 import { recordFromLog, pushLog } from '../capture/console';
-import { stepFromEvent, pushStep } from '../capture/recorder';
+import { stepFromEvent, pushStep, appendNavigate } from '../capture/recorder';
 import { checkLinks } from '../audit/link-check';
 import { toStorageEntries, type CookieLike } from '../audit/storage';
 import { computeWindowSize } from '../audit/responsive';
@@ -410,17 +410,8 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
     pendingNonces.delete(tabId);
     const url = info.url ?? prev.url;
     if (wasRecording) {
-      const last = keptSteps[keptSteps.length - 1];
-      // 리다이렉트 등으로 같은 URL navigate 가 연달아 쌓이는 것 방지
-      let steps = keptSteps;
-      if (!(last && last.kind === 'navigate' && last.value === url)) {
-        stepSeq += 1;
-        const navStep = stepFromEvent(
-          { kind: 'navigate', selector: null, label: null, value: url, at: Date.now() },
-          `step-${tabId}-${stepSeq}`,
-        );
-        steps = pushStep(keptSteps, navStep);
-      }
+      stepSeq += 1;
+      const steps = appendNavigate(keptSteps, url ?? '', `step-${tabId}-${stepSeq}`, Date.now());
       updateTabState(tabId, { recording: true, steps, url });
     } else if (info.url) {
       updateTabState(tabId, { url: info.url });

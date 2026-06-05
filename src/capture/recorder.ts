@@ -49,6 +49,16 @@ export function pushStep(list: Step[], step: Step): Step[] {
   return next;
 }
 
+/**
+ * 네비게이션 시 누적 스텝에 navigate 스텝을 이어붙인다. 직전이 같은 URL navigate 면
+ * 그대로 반환(리다이렉트 연쇄에서 navigate 가 중복으로 쌓이는 것 방지).
+ */
+export function appendNavigate(steps: Step[], url: string, id: string, now: number): Step[] {
+  const last = steps[steps.length - 1];
+  if (last && last.kind === 'navigate' && last.value === url) return steps;
+  return pushStep(steps, stepFromEvent({ kind: 'navigate', selector: null, label: null, value: url, at: now }, id));
+}
+
 /** 표시용 대상 이름 (라벨 우선, 없으면 선택자, 둘 다 없으면 '요소') */
 function targetName(step: Step): string {
   if (step.label && step.label.trim()) return step.label.trim();
