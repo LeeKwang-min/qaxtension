@@ -46,7 +46,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function InspectPanel({ picking, picked, onTogglePick }: Props) {
   return (
     <div>
-      <button onClick={onTogglePick} style={{ fontWeight: picking ? 700 : 400 }}>
+      <button
+        type="button"
+        aria-pressed={picking}
+        onClick={onTogglePick}
+        style={{ fontWeight: picking ? 700 : 400 }}
+      >
         {picking ? '선택 중지 (ESC)' : '요소 선택'}
       </button>
 
