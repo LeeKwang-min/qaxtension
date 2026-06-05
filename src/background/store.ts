@@ -8,6 +8,8 @@ function createDefault(tabId: TabId): TabSessionState {
     url: null,
     injectReady: false,
     lastPingNonce: null,
+    picking: false,
+    pickedElement: null,
     updatedAt: Date.now(),
   };
 }

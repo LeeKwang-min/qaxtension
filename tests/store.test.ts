@@ -10,6 +10,8 @@ describe('tab session store', () => {
     expect(s.injectReady).toBe(false);
     expect(s.url).toBeNull();
     expect(s.lastPingNonce).toBeNull();
+    expect(s.picking).toBe(false);
+    expect(s.pickedElement).toBeNull();
   });
 
   it('merges partial patches and keeps tabId fixed', () => {

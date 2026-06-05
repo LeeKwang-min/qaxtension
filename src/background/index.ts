@@ -47,6 +47,14 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
       }
       break;
     }
+    case 'ELEMENT_PICKED':
+      updateTabState(tabId, { pickedElement: msg.info, picking: false });
+      pushState(tabId);
+      break;
+    case 'PICK_CANCELLED':
+      updateTabState(tabId, { picking: false });
+      pushState(tabId);
+      break;
     // 'PING' 은 background→content 방향이라 여기선 무시
   }
 });
@@ -77,6 +85,20 @@ chrome.runtime.onConnect.addListener((port) => {
       updateTabState(msg.tabId, { lastPingNonce: null });
       const cmd: RuntimeMessage = { type: 'PING', nonce: n };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'PICK_START') {
+      updateTabState(msg.tabId, { picking: true, pickedElement: null });
+      pushState(msg.tabId);
+      const cmd: RuntimeMessage = { type: 'PICK_START' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {
+        // content 가 없으면(미주입 페이지) 피커를 켤 수 없으므로 picking 복구
+        updateTabState(msg.tabId, { picking: false });
+        pushState(msg.tabId);
+      });
+    } else if (msg.type === 'PICK_STOP') {
+      updateTabState(msg.tabId, { picking: false });
+      const cmd: RuntimeMessage = { type: 'PICK_STOP' };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+      pushState(msg.tabId);
     }
   });
 
