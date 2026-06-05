@@ -1,11 +1,48 @@
 import { CMD_SOURCE, isInjectEnvelope } from '../messaging';
 import type { CmdEnvelope, RuntimeMessage } from '../messaging/types';
+import { createPicker } from '../inspect/picker';
+import { buildElementInfo, type StyleLike } from '../inspect/element-info';
 
 // inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
 function requestResync(): void {
   const envelope: CmdEnvelope = { source: CMD_SOURCE, payload: { type: 'RESYNC' } };
   window.postMessage(envelope, '*');
 }
+
+// ── 요소 피커 ──────────────────────────────────────────────
+function styleOf(el: Element): StyleLike {
+  const c = getComputedStyle(el);
+  return {
+    color: c.color,
+    backgroundColor: c.backgroundColor,
+    borderColor: c.borderTopColor, // borderColor 단축은 빈 문자열일 수 있어 top 으로 대체
+    fontFamily: c.fontFamily,
+    fontSize: c.fontSize,
+    fontWeight: c.fontWeight,
+    lineHeight: c.lineHeight,
+    letterSpacing: c.letterSpacing,
+    width: c.width,
+    height: c.height,
+    margin: c.margin,
+    padding: c.padding,
+    borderRadius: c.borderRadius,
+    border: `${c.borderTopWidth} ${c.borderTopStyle} ${c.borderTopColor}`,
+  };
+}
+
+const picker = createPicker(
+  (el) => {
+    const info = buildElementInfo(el, styleOf(el));
+    // e2e 관측용 마킹
+    document.documentElement.dataset.qaxtensionPicked = info.selector;
+    const msg: RuntimeMessage = { type: 'ELEMENT_PICKED', info };
+    void chrome.runtime.sendMessage(msg).catch(() => {});
+  },
+  () => {
+    const msg: RuntimeMessage = { type: 'PICK_CANCELLED' };
+    void chrome.runtime.sendMessage(msg).catch(() => {});
+  },
+);
 
 // MAIN world(inject) → background 로 중계
 window.addEventListener('message', (ev: MessageEvent) => {
@@ -28,7 +65,7 @@ window.addEventListener('message', (ev: MessageEvent) => {
   }
 });
 
-// background → MAIN world(inject) 명령 중계
+// background → MAIN world(inject) 명령 중계 + 피커 제어
 chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   if (sender.id !== chrome.runtime.id) return;
   if (msg.type === 'PING') {
@@ -37,6 +74,10 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
   } else if (msg.type === 'RESYNC') {
     // 패널이 SUBSCRIBE 할 때 background 가 보낸다 → inject 에게 재확인 요청
     requestResync();
+  } else if (msg.type === 'PICK_START') {
+    picker.start();
+  } else if (msg.type === 'PICK_STOP') {
+    picker.stop();
   }
 });
 
