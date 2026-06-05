@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { domChildren, elementByPath } from '../src/inspect/dom-tree';
+import { domChildren, elementByPath, pathOfElement } from '../src/inspect/dom-tree';
 
 function bodyOf(html: string): Element {
   return new JSDOM(html).window.document.body;
@@ -79,5 +79,31 @@ describe('elementByPath', () => {
     const body = bodyOf('<body><div></div></body>');
     expect(elementByPath(body, [9])).toBeNull();
     expect(elementByPath(body, [0, 0])).toBeNull();
+  });
+});
+
+describe('pathOfElement', () => {
+  it('computes the index path from root to a descendant', () => {
+    const body = bodyOf('<body><header></header><main><span></span><section id="t"></section></main></body>');
+    const target = body.querySelector('#t')!;
+    expect(pathOfElement(body, target)).toEqual([1, 1]);
+  });
+
+  it('returns an empty path for the root itself', () => {
+    const body = bodyOf('<body><div></div></body>');
+    expect(pathOfElement(body, body)).toEqual([]);
+  });
+
+  it('round-trips with elementByPath', () => {
+    const body = bodyOf('<body><a></a><b><i></i><u id="z"></u></b></body>');
+    const target = body.querySelector('#z')!;
+    const path = pathOfElement(body, target)!;
+    expect(elementByPath(body, path)).toBe(target);
+  });
+
+  it('returns null when the element is not under the root', () => {
+    const body = bodyOf('<body><div></div></body>');
+    const outside = body.ownerDocument.createElement('div');
+    expect(pathOfElement(body, outside)).toBeNull();
   });
 });

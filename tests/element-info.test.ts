@@ -114,4 +114,22 @@ describe('buildElementInfo', () => {
     el.textContent = 'x'.repeat(100);
     expect(buildElementInfo(el, makeStyle()).text).toHaveLength(80);
   });
+
+  it('computes domPath relative to body for attached elements', () => {
+    const wrap = document.createElement('section');
+    const el = document.createElement('span');
+    wrap.appendChild(el);
+    document.body.appendChild(wrap);
+    const info = buildElementInfo(el, makeStyle());
+    expect(info.domPath).not.toBeNull();
+    // body 의 마지막 자식(wrap) 하위 첫 요소(span)
+    const bodyIdx = Array.prototype.indexOf.call(document.body.children, wrap);
+    expect(info.domPath).toEqual([bodyIdx, 0]);
+    wrap.remove();
+  });
+
+  it('domPath is null for detached elements', () => {
+    const el = document.createElement('div');
+    expect(buildElementInfo(el, makeStyle()).domPath).toBeNull();
+  });
 });

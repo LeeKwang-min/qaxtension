@@ -140,6 +140,8 @@ export interface ElementInfo {
   id: string | null;
   classList: string[];
   selector: string;
+  /** body 기준 DOM 트리 인덱스 경로 (트리 동기화용, body 밖이면 null) */
+  domPath: number[] | null;
   text: string | null;
   colors: {
     color: ColorInfo;

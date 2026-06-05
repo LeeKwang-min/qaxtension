@@ -173,6 +173,7 @@ describe('buildMarkdown', () => {
       id: null,
       classList: ['submit'],
       selector: 'button.submit',
+      domPath: null,
       text: '제출',
       colors: {
         color: { raw: 'rgb(255,255,255)', hex: '#ffffff' },

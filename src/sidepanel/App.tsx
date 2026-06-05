@@ -228,6 +228,10 @@ export function App() {
             onTreeExpand={requestTreeChildren}
             onTreeSelect={inspectTreeNode}
             onTreeHighlight={highlightTreeNode}
+            treeSyncPath={
+              state?.pickedElement?.domPath ??
+              (state?.picking ? state?.hoveredElement?.domPath ?? null : null)
+            }
           />
         ) : active === '네트워크' ? (
           <NetworkPanel

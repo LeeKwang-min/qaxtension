@@ -80,8 +80,9 @@ test('picker emits ELEMENT_HOVERED on hover without clicking', async () => {
   // background 전역에 ELEMENT_HOVERED 수신 프로미스 설치
   await sw.evaluate(() => {
     (globalThis as unknown as { __hovered: Promise<unknown> }).__hovered = new Promise((resolve) => {
-      const listener = (msg: { type?: string; info?: unknown }) => {
-        if (msg?.type === 'ELEMENT_HOVERED') {
+      const listener = (msg: { type?: string; info?: { selector?: string } }) => {
+        // 호버 경로상 중간 요소가 아닌, 대상 요소의 호버만 받는다
+        if (msg?.type === 'ELEMENT_HOVERED' && msg.info?.selector === '#hovertgt') {
           chrome.runtime.onMessage.removeListener(listener);
           resolve(msg.info);
         }
@@ -102,8 +103,10 @@ test('picker emits ELEMENT_HOVERED on hover without clicking', async () => {
 
   const info = (await sw.evaluate(
     () => (globalThis as unknown as { __hovered: Promise<unknown> }).__hovered,
-  )) as { selector: string };
+  )) as { selector: string; domPath: number[] | null };
   expect(info.selector).toBe('#hovertgt');
+  // 트리 동기화용 경로 포함 (body 의 첫 자식 → [0])
+  expect(info.domPath).toEqual([0]);
 });
 
 // DOM 트리: content 가 DOM_CHILDREN 에 자식 목록으로, INSPECT_PATH 에 선택으로 응답하는지.

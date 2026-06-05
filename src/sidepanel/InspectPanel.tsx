@@ -15,6 +15,8 @@ interface Props {
   onTreeExpand: (path: number[]) => void;
   onTreeSelect: (path: number[]) => void;
   onTreeHighlight: (path: number[] | null) => void;
+  /** 페이지에서 가리킨 요소의 트리 경로 (동기화용) */
+  treeSyncPath: number[] | null;
 }
 
 function Swatch({ hex }: { hex: string }) {
@@ -64,6 +66,7 @@ export function InspectPanel({
   onTreeExpand,
   onTreeSelect,
   onTreeHighlight,
+  treeSyncPath,
 }: Props) {
   // 고정 선택(picked)이 우선, 없으면 호버 미리보기(picking 중에만)
   const display = picked ?? (picking ? hovered : null);
@@ -95,6 +98,7 @@ export function InspectPanel({
             onExpand={onTreeExpand}
             onSelect={onTreeSelect}
             onHighlight={onTreeHighlight}
+            syncPath={treeSyncPath}
           />
         </section>
       )}

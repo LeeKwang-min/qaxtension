@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DomTreeNode } from '../messaging/types';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   onSelect: (path: number[]) => void;
   /** 노드 호버 — 화면에서 해당 영역 하이라이트 (null 이면 숨김) */
   onHighlight: (path: number[] | null) => void;
+  /** 페이지에서 가리킨 요소의 경로 — 트리를 그 위치로 펼치고 강조 (null 이면 동기화 안 함) */
+  syncPath: number[] | null;
 }
 
 const keyOf = (p: number[]): string => p.join('.');
@@ -44,10 +46,17 @@ function TreeNode({
   const hasChildren = node.childElementCount > 0;
   const selected = selectedKey === k;
   const hiddenCount = kids ? node.childElementCount - kids.length : 0;
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // 선택(동기화)된 노드가 트리 뷰 밖이면 보이도록 스크롤
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
 
   return (
     <div>
       <div
+        ref={rowRef}
         onClick={() => onToggle(node)}
         onMouseEnter={() => onHighlight(node.path)}
         style={{
@@ -103,10 +112,34 @@ function TreeNode({
   );
 }
 
-export function DomTree({ childrenMap, onExpand, onSelect, onHighlight }: Props) {
+export function DomTree({ childrenMap, onExpand, onSelect, onHighlight, syncPath }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const roots = childrenMap[''];
+  const syncKey = syncPath ? keyOf(syncPath) : null;
+
+  // 페이지 → 트리 동기화: 가리킨 요소의 조상을 모두 펼치고 그 노드를 선택
+  useEffect(() => {
+    if (!syncPath) return;
+    setSelectedKey(keyOf(syncPath));
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (let i = 0; i < syncPath.length; i++) next.add(keyOf(syncPath.slice(0, i)));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncKey]);
+
+  // 펼쳐졌지만 자식이 아직 없는 조상을 점진적으로 로드 (응답이 오면 다음 단계 진행)
+  useEffect(() => {
+    if (!syncPath) return;
+    for (let i = 0; i < syncPath.length; i++) {
+      const ancestor = syncPath.slice(0, i);
+      const key = keyOf(ancestor);
+      if (expanded.has(key) && !childrenMap[key]) onExpand(ancestor);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncKey, childrenMap, expanded]);
 
   const onToggle = (node: DomTreeNode): void => {
     const k = keyOf(node.path);

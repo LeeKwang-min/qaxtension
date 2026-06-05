@@ -1,5 +1,6 @@
 import type { ColorInfo, ContrastInfo, ElementInfo } from '../messaging/types';
 import { parseColorToHex, rgbTuple, contrastRatio, wcagLevel } from './colors';
+import { pathOfElement } from './dom-tree';
 
 /** getComputedStyle 결과에서 우리가 읽는 속성만 추린 형태 (테스트 주입용) */
 export interface StyleLike {
@@ -60,11 +61,13 @@ function computeContrast(style: StyleLike): ContrastInfo | null {
 /** 요소 + computed style → ElementInfo */
 export function buildElementInfo(el: Element, style: StyleLike): ElementInfo {
   const text = el.textContent?.trim() || null;
+  const root = el.ownerDocument?.body ?? null;
   return {
     tagName: el.tagName.toLowerCase(),
     id: el.id || null,
     classList: Array.from(el.classList),
     selector: cssPath(el),
+    domPath: root ? pathOfElement(root, el) : null,
     text: text ? text.slice(0, MAX_TEXT) : null,
     colors: {
       color: colorInfo(style.color),
