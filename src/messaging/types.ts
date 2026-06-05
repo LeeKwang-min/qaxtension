@@ -12,8 +12,24 @@ export interface BodyCapture {
   contentType: string | null;
 }
 
-/** 네트워크 요청 출처 */
-export type NetworkSource = 'fetch' | 'xhr';
+/** 네트워크 요청 출처 ('webRequest' 는 chrome.webRequest 보조 소스) */
+export type NetworkSource = 'fetch' | 'xhr' | 'webRequest';
+
+/** chrome.webRequest 가 제공하는 보조 종료 정보 (본문 없음) */
+export interface WebReqEnd {
+  /** chrome.webRequest requestId (재이벤트/리다이렉트 추적용) */
+  requestId: string;
+  method: string;
+  url: string;
+  /** epoch ms (onCompleted/onErrorOccurred timeStamp) */
+  timeStamp: number;
+  /** onCompleted 의 statusCode, onErrorOccurred 면 null */
+  status: number | null;
+  /** onErrorOccurred 의 error 문자열(net::ERR_...), 성공이면 null */
+  error: string | null;
+  /** 캐시에서 응답됐는지 */
+  fromCache: boolean;
+}
 
 /** inject 가 요청 시작 시 보내는 페이로드 */
 export interface NetStart {
@@ -53,6 +69,10 @@ export interface RequestRecord {
   durationMs: number | null;
   requestBody: BodyCapture | null;
   responseBody: BodyCapture | null;
+  /** chrome.webRequest 가 캐시 응답이라고 보고했으면 true (없으면 null) */
+  fromCache: boolean | null;
+  /** 이 레코드를 보완한 webRequest requestId (재이벤트 매칭용, 미보완이면 null) */
+  webReqId: string | null;
 }
 
 /** 트리맵 타일 한 칸 (host 또는 path 그룹 집계) */

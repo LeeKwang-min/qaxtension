@@ -6,10 +6,12 @@ import {
   pushBounded,
   failedRequests,
   treemapCells,
+  mergeWebReq,
   MAX_BODY,
   MAX_REQUESTS,
+  WEBREQ_MATCH_WINDOW_MS,
 } from '../src/capture/network';
-import type { NetStart, RequestRecord } from '../src/messaging/types';
+import type { NetStart, RequestRecord, WebReqEnd } from '../src/messaging/types';
 
 function start(over: Partial<NetStart> = {}): NetStart {
   return {
@@ -19,6 +21,19 @@ function start(over: Partial<NetStart> = {}): NetStart {
     url: 'https://api.example.com/users',
     startedAt: 1000,
     requestBody: null,
+    ...over,
+  };
+}
+
+function webreq(over: Partial<WebReqEnd> = {}): WebReqEnd {
+  return {
+    requestId: 'wr1',
+    method: 'GET',
+    url: 'https://api.example.com/users',
+    timeStamp: 1100,
+    status: 200,
+    error: null,
+    fromCache: false,
     ...over,
   };
 }
@@ -142,5 +157,77 @@ describe('treemapCells', () => {
     const recs = [recordFromStart(start({ id: '1', url: 'not a url' }))];
     const cells = treemapCells(recs);
     expect(cells[0].key).toBe('(기타)');
+  });
+});
+
+describe('mergeWebReq', () => {
+  it('fills a pending inject record status from webRequest (status was null)', () => {
+    const pending = recordFromStart(start({ id: 'inj', startedAt: 1000 }));
+    const list = mergeWebReq([pending], webreq({ status: 200, timeStamp: 1100 }));
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe('inj'); // 같은 레코드 보완(중복 추가 아님)
+    expect(list[0].source).toBe('fetch');
+    expect(list[0].status).toBe(200);
+    expect(list[0].ok).toBe(true);
+    expect(list[0].webReqId).toBe('wr1');
+  });
+
+  it('upgrades a vague inject error with the concrete webRequest error', () => {
+    const errored = applyEnd(recordFromStart(start({ id: 'inj' })), {
+      error: 'network error or CORS',
+      durationMs: 5,
+    });
+    const list = mergeWebReq([errored], webreq({ status: null, error: 'net::ERR_BLOCKED_BY_CLIENT' }));
+    expect(list).toHaveLength(1);
+    expect(list[0].error).toBe('net::ERR_BLOCKED_BY_CLIENT');
+  });
+
+  it('does not overwrite an inject status that is already filled (dedupe, only fromCache meta)', () => {
+    const ok = applyEnd(recordFromStart(start({ id: 'inj' })), { status: 200, ok: true, durationMs: 5 });
+    const list = mergeWebReq([ok], webreq({ status: 304, fromCache: true }));
+    expect(list).toHaveLength(1);
+    expect(list[0].status).toBe(200); // inject 본문 포함 레코드를 신뢰, 덮어쓰지 않음
+    expect(list[0].fromCache).toBe(true); // 메타는 보완
+    expect(list[0].webReqId).toBe('wr1');
+  });
+
+  it('creates a standalone webRequest record when nothing matches', () => {
+    const other = recordFromStart(start({ id: 'inj', url: 'https://api.example.com/other' }));
+    const list = mergeWebReq([other], webreq({ url: 'https://api.example.com/lonely', status: 500 }));
+    expect(list).toHaveLength(2);
+    const wr = list.find((r) => r.source === 'webRequest')!;
+    expect(wr.url).toBe('https://api.example.com/lonely');
+    expect(wr.status).toBe(500);
+    expect(wr.ok).toBe(false);
+    expect(wr.webReqId).toBe('wr1');
+    expect(wr.requestBody).toBeNull();
+  });
+
+  it('does not match outside the time window', () => {
+    const pending = recordFromStart(start({ id: 'inj', startedAt: 1000 }));
+    const far = webreq({ timeStamp: 1000 + WEBREQ_MATCH_WINDOW_MS + 1, status: 200 });
+    const list = mergeWebReq([pending], far);
+    expect(list).toHaveLength(2); // 매칭 실패 → 독립 레코드
+    expect(list[0].webReqId).toBeNull();
+  });
+
+  it('updates the same record on a re-event with the same requestId (redirect→complete)', () => {
+    const pending = recordFromStart(start({ id: 'inj', startedAt: 1000 }));
+    let list = mergeWebReq([pending], webreq({ requestId: 'wrX', status: 301, timeStamp: 1050 }));
+    expect(list).toHaveLength(1);
+    expect(list[0].status).toBe(301);
+    // 같은 requestId 로 최종 200 이 오면 같은 레코드를 갱신(추가 아님)
+    list = mergeWebReq(list, webreq({ requestId: 'wrX', status: 200, timeStamp: 1200 }));
+    expect(list).toHaveLength(1);
+    expect(list[0].status).toBe(200);
+  });
+
+  it('matches the closest inject record by start time (1:1 consume)', () => {
+    const a = recordFromStart(start({ id: 'a', startedAt: 1000 }));
+    const b = recordFromStart(start({ id: 'b', startedAt: 1400 }));
+    const list = mergeWebReq([a, b], webreq({ status: 200, timeStamp: 1450 }));
+    expect(list).toHaveLength(2);
+    const consumed = list.find((r) => r.webReqId === 'wr1')!;
+    expect(consumed.id).toBe('b'); // 1400 이 1450 에 더 가깝다
   });
 });
