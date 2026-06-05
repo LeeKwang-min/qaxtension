@@ -77,12 +77,41 @@ function BodyBlock({ title, body }: { title: string; body: RequestRecord['reques
   );
 }
 
+/** 요청 한 건의 상세 (아코디언으로 펼쳐지는 본문) */
+function Detail({ r }: { r: RequestRecord }) {
+  return (
+    <div
+      style={{
+        margin: '0 0 4px',
+        padding: '6px 8px',
+        background: '#f7faff',
+        border: '1px solid #e3ecff',
+        borderRadius: 4,
+      }}
+    >
+      <Field label="메서드">{r.method}</Field>
+      <Field label="URL">{r.url}</Field>
+      <Field label="상태">
+        <span style={{ color: statusColor(r), fontWeight: 700 }}>
+          {r.status ?? '진행 중/오류'} {r.statusText ?? ''}
+        </span>
+      </Field>
+      {r.error && <Field label="오류">{r.error}</Field>}
+      <Field label="소요시간">{r.durationMs != null ? `${r.durationMs}ms` : '—'}</Field>
+      <Field label="출처">{r.source}</Field>
+      <BodyBlock title="요청 본문" body={r.requestBody} />
+      <BodyBlock title="응답 본문" body={r.responseBody} />
+    </div>
+  );
+}
+
 export function NetworkPanel({ requests, injectReady, paused, onClear, onTogglePause }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const fails = failedRequests(requests);
   const cells = treemapCells(requests);
-  const selected = requests.find((r) => r.id === selectedId) ?? null;
   const maxCount = cells.reduce((m, c) => Math.max(m, c.count), 0) || 1;
+  // 같은 항목을 다시 누르면 접힘 (아코디언)
+  const toggle = (id: string) => setSelectedId((prev) => (prev === id ? null : id));
 
   if (!injectReady && requests.length === 0) {
     return (
@@ -148,12 +177,14 @@ export function NetworkPanel({ requests, injectReady, paused, onClear, onToggleP
         <section style={{ marginTop: 12 }}>
           <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#b00020' }}>실패 ({fails.length})</h3>
           {fails.map((r) => (
-            <div
-              key={r.id}
-              onClick={() => setSelectedId(r.id)}
-              style={{ cursor: 'pointer', fontSize: 11, padding: '2px 0', color: '#b00020', wordBreak: 'break-all' }}
-            >
-              <strong>{statusLabel(r)}</strong> {r.method} {shortUrl(r.url)}
+            <div key={r.id}>
+              <div
+                onClick={() => toggle(r.id)}
+                style={{ cursor: 'pointer', fontSize: 11, padding: '2px 0', color: '#b00020', wordBreak: 'break-all' }}
+              >
+                <strong>{statusLabel(r)}</strong> {r.method} {shortUrl(r.url)}
+              </div>
+              {r.id === selectedId && <Detail r={r} />}
             </div>
           ))}
         </section>
@@ -164,47 +195,31 @@ export function NetworkPanel({ requests, injectReady, paused, onClear, onToggleP
           <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#333' }}>요청 ({requests.length})</h3>
           <div>
             {requests.map((r) => (
-              <div
-                key={r.id}
-                onClick={() => setSelectedId(r.id)}
-                style={{
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'baseline',
-                  padding: '3px 4px',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  background: r.id === selectedId ? '#eef4ff' : 'transparent',
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-              >
-                <span style={{ color: statusColor(r), fontWeight: 700, minWidth: 30 }}>{statusLabel(r)}</span>
-                <span style={{ minWidth: 36, color: '#555' }}>{r.method}</span>
-                <span style={{ flex: 1, wordBreak: 'break-all' }}>{shortUrl(r.url)}</span>
-                <span style={{ color: '#999', minWidth: 44, textAlign: 'right' }}>
-                  {r.durationMs != null ? `${r.durationMs}ms` : '…'}
-                </span>
+              <div key={r.id}>
+                <div
+                  onClick={() => toggle(r.id)}
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'baseline',
+                    padding: '3px 4px',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    background: r.id === selectedId ? '#eef4ff' : 'transparent',
+                    borderBottom: '1px solid #f0f0f0',
+                  }}
+                >
+                  <span style={{ color: statusColor(r), fontWeight: 700, minWidth: 30 }}>{statusLabel(r)}</span>
+                  <span style={{ minWidth: 36, color: '#555' }}>{r.method}</span>
+                  <span style={{ flex: 1, wordBreak: 'break-all' }}>{shortUrl(r.url)}</span>
+                  <span style={{ color: '#999', minWidth: 44, textAlign: 'right' }}>
+                    {r.durationMs != null ? `${r.durationMs}ms` : '…'}
+                  </span>
+                </div>
+                {r.id === selectedId && <Detail r={r} />}
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {selected && (
-        <section style={{ marginTop: 12, borderTop: '2px solid #eee', paddingTop: 8 }}>
-          <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#333' }}>상세</h3>
-          <Field label="메서드">{selected.method}</Field>
-          <Field label="URL">{selected.url}</Field>
-          <Field label="상태">
-            <span style={{ color: statusColor(selected), fontWeight: 700 }}>
-              {selected.status ?? '진행 중/오류'} {selected.statusText ?? ''}
-            </span>
-          </Field>
-          {selected.error && <Field label="오류">{selected.error}</Field>}
-          <Field label="소요시간">{selected.durationMs != null ? `${selected.durationMs}ms` : '—'}</Field>
-          <Field label="출처">{selected.source}</Field>
-          <BodyBlock title="요청 본문" body={selected.requestBody} />
-          <BodyBlock title="응답 본문" body={selected.responseBody} />
         </section>
       )}
     </div>
