@@ -51,4 +51,14 @@ describe('wcagLevel', () => {
     expect(wcagLevel(3.5, 24, false)).toBe('AA');
     expect(wcagLevel(2, 24, false)).toBe('Fail');
   });
+
+  it('uses relaxed thresholds for bold large text (>=18.66px)', () => {
+    expect(wcagLevel(3.5, 18.66, true)).toBe('AA'); // bold 18.66 counts as large
+    expect(wcagLevel(3.5, 18.65, true)).toBe('Fail'); // just below the bold-large threshold
+    expect(wcagLevel(3.5, 18.66, false)).toBe('Fail'); // size met but not bold → normal text
+  });
+
+  it('grades AAA for high-contrast large text', () => {
+    expect(wcagLevel(4.5, 24, false)).toBe('AAA');
+  });
 });
