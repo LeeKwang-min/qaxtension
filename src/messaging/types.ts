@@ -63,7 +63,7 @@ export interface TreemapCell {
   errorCount: number;
   /** 0~1 */
   errorRate: number;
-  /** 응답 본문 합계(문자 수) */
+  /** 원본(절단 전) 응답 본문 크기 합계(문자 수) */
   bytes: number;
 }
 

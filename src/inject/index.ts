@@ -55,6 +55,8 @@ if (!w.__qaxtensionInjectReady) {
           }
           const body = init?.body;
           if (typeof body === 'string') requestBody = captureBody(body, null);
+          else if (body instanceof URLSearchParams)
+            requestBody = captureBody(body.toString(), 'application/x-www-form-urlencoded');
         } catch {
           /* fail-open: 메타 추출 실패해도 호출은 진행 */
         }
@@ -77,8 +79,29 @@ if (!w.__qaxtensionInjectReady) {
         return p.then(
           (response) => {
             // 응답 본문은 clone 으로 읽어 원본 스트림을 소비하지 않는다.
+            // 단, 스트림(SSE)·바이너리·대용량 응답은 본문을 읽지 않는다(XHR 와 동일하게 보수적).
             try {
-              const ct = response.headers.get('content-type');
+              const ct = response.headers.get('content-type') || '';
+              const lenHeader = response.headers.get('content-length');
+              const len = lenHeader ? Number(lenHeader) : null;
+              const skipBody =
+                /event-stream|octet-stream|^image\/|^video\/|^audio\//i.test(ct) ||
+                (len != null && len > 1_000_000);
+              if (skipBody) {
+                // 본문을 읽지 않고 즉시 상태/타이밍만 보낸다 (SSE 가 영원히 pending 되는 문제 방지)
+                try {
+                  postEnd(id, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    durationMs: Date.now() - startedAt,
+                    responseBody: null,
+                  });
+                } catch {
+                  /* 무시 */
+                }
+                return response;
+              }
               response
                 .clone()
                 .text()
@@ -110,7 +133,18 @@ if (!w.__qaxtensionInjectReady) {
                   }
                 });
             } catch {
-              /* 무시 */
+              // 가드 로직 자체가 던져도 상태/타이밍은 본문 없이 보내려 시도한다 (fail-open)
+              try {
+                postEnd(id, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  ok: response.ok,
+                  durationMs: Date.now() - startedAt,
+                  responseBody: null,
+                });
+              } catch {
+                /* 무시 */
+              }
             }
             return response;
           },
@@ -165,6 +199,8 @@ if (!w.__qaxtensionInjectReady) {
         let requestBody = null as ReturnType<typeof captureBody>;
         try {
           if (typeof body === 'string') requestBody = captureBody(body, null);
+          else if (body instanceof URLSearchParams)
+            requestBody = captureBody(body.toString(), 'application/x-www-form-urlencoded');
         } catch {
           /* 무시 */
         }
@@ -208,7 +244,7 @@ if (!w.__qaxtensionInjectReady) {
             } catch {
               /* 무시 */
             }
-          });
+          }, { once: true });
         } catch {
           /* 무시 */
         }
