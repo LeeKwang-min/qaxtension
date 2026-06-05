@@ -13,6 +13,7 @@ function createDefault(tabId: TabId): TabSessionState {
     requests: [],
     logs: [],
     env: null,
+    audit: null,
     updatedAt: Date.now(),
   };
 }

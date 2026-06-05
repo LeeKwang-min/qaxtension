@@ -195,6 +195,102 @@ export interface EnvInfo {
   collectedAt: number; // epoch ms
 }
 
+// ── Phase 5: 추가 자동 검증 (audit) ──────────────────────────
+
+/** 접근성 이슈 종류 */
+export type A11yKind =
+  | 'img-alt' // <img> alt 누락
+  | 'control-name' // 버튼/링크에 접근가능 이름 없음
+  | 'input-label' // 입력에 연결된 label/aria 없음
+  | 'html-lang' // <html lang> 누락
+  | 'contrast'; // 텍스트 색 대비 WCAG Fail
+
+/** 접근성 이슈 한 건 */
+export interface A11yIssue {
+  kind: A11yKind;
+  /** 위반 요소 selector (html-lang 은 'html') */
+  selector: string;
+  /** 비개발자용 평이한 설명 */
+  message: string;
+  severity: 'error' | 'warn';
+}
+
+/** 페이지가 참조하는 리소스 종류 */
+export type ResourceKind = 'img' | 'link' | 'stylesheet' | 'script';
+
+/** 수집된 리소스 참조 한 건 */
+export interface ResourceRef {
+  kind: ResourceKind;
+  /** 절대 URL */
+  url: string;
+  /** 참조 요소 selector */
+  selector: string;
+  /** 이미지가 DOM 상 깨진(로드 실패) 것으로 확정됐는지 (img 외엔 false) */
+  broken: boolean;
+}
+
+/** 링크/리소스 HTTP 상태 검증 결과 (background fetch) */
+export interface LinkCheck {
+  url: string;
+  /** HTTP 상태코드 (네트워크 오류면 null) */
+  status: number | null;
+  /** 2xx~3xx 면 true */
+  ok: boolean;
+  /** 네트워크 오류 메시지 (없으면 null) */
+  error: string | null;
+}
+
+/** 스토리지 항목 한 건 (localStorage) */
+export interface StorageItem {
+  key: string;
+  value: string;
+  /** 민감해 보여 마스킹된 값인지 */
+  masked: boolean;
+}
+
+/** 쿠키 한 건 (chrome.cookies, httpOnly 포함) */
+export interface CookieItem {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  httpOnly: boolean;
+  secure: boolean;
+  masked: boolean;
+}
+
+/** 스토리지/쿠키 뷰어 모델 */
+export interface StorageView {
+  local: StorageItem[];
+  cookies: CookieItem[];
+}
+
+/** 반응형 뷰포트 프리셋 */
+export interface ViewportPreset {
+  label: string;
+  width: number;
+  height: number;
+}
+
+/** content 가 보내는 audit 원시 수집 (쿠키/링크 검증 전) */
+export interface AuditRaw {
+  a11y: A11yIssue[];
+  resources: ResourceRef[];
+  /** localStorage 항목 (content 만 접근 가능) */
+  local: StorageItem[];
+  ranAt: number; // epoch ms
+}
+
+/** 최종 audit 결과 (store/패널 표시 단위) */
+export interface AuditResult {
+  a11y: A11yIssue[];
+  resources: ResourceRef[];
+  /** 링크/리소스 HTTP 검증 결과 (background fetch) */
+  links: LinkCheck[];
+  storage: StorageView;
+  ranAt: number; // epoch ms
+}
+
 /** 리포트 빌더 입력 (세션 스냅샷) */
 export interface ReportInput {
   generatedAt: number; // epoch ms
@@ -254,7 +350,11 @@ export type RuntimeMessage =
   // background → content: 환경정보 수집 요청
   | { type: 'COLLECT_ENV' }
   // content → background: 환경정보 수집 결과
-  | { type: 'ENV_RESULT'; env: EnvInfo };
+  | { type: 'ENV_RESULT'; env: EnvInfo }
+  // background → content: 자동 검증 실행 요청
+  | { type: 'RUN_AUDIT' }
+  // content → background: 자동 검증 원시 수집 결과
+  | { type: 'AUDIT_RESULT'; raw: AuditRaw };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -268,6 +368,8 @@ export interface TabSessionState {
   logs: LogRecord[];
   /** 마지막으로 수집한 환경정보 (없으면 null) */
   env: EnvInfo | null;
+  /** 마지막 자동 검증 결과 (없으면 null) */
+  audit: AuditResult | null;
   updatedAt: number;
 }
 
@@ -288,4 +390,8 @@ export type PortMessage =
   | { type: 'SCREENSHOT_RESULT'; dataUrl: string | null; error?: string }
   // 패널 → background: 환경정보 수집 요청
   | { type: 'COLLECT_ENV'; tabId: TabId }
+  // 패널 → background: 자동 검증 실행
+  | { type: 'RUN_AUDIT'; tabId: TabId }
+  // 패널 → background: 반응형 프리셋으로 윈도우 리사이즈
+  | { type: 'RESIZE_WINDOW'; tabId: TabId; width: number; height: number }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
