@@ -23,9 +23,9 @@ function styleOf(el: Element): StyleLike {
     letterSpacing: c.letterSpacing,
     width: c.width,
     height: c.height,
-    margin: c.margin,
-    padding: c.padding,
-    borderRadius: c.borderRadius,
+    margin: `${c.marginTop} ${c.marginRight} ${c.marginBottom} ${c.marginLeft}`,
+    padding: `${c.paddingTop} ${c.paddingRight} ${c.paddingBottom} ${c.paddingLeft}`,
+    borderRadius: `${c.borderTopLeftRadius} ${c.borderTopRightRadius} ${c.borderBottomRightRadius} ${c.borderBottomLeftRadius}`,
     border: `${c.borderTopWidth} ${c.borderTopStyle} ${c.borderTopColor}`,
   };
 }
@@ -36,11 +36,16 @@ const picker = createPicker(
     // e2e 관측용 마킹
     document.documentElement.dataset.qaxtensionPicked = info.selector;
     const msg: RuntimeMessage = { type: 'ELEMENT_PICKED', info };
-    void chrome.runtime.sendMessage(msg).catch(() => {});
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   },
   () => {
+    delete document.documentElement.dataset.qaxtensionPicked;
     const msg: RuntimeMessage = { type: 'PICK_CANCELLED' };
-    void chrome.runtime.sendMessage(msg).catch(() => {});
+    void chrome.runtime.sendMessage(msg).catch((e: unknown) => {
+      console.debug('[qaxtension] content sendMessage failed:', e);
+    });
   },
 );
 
@@ -75,6 +80,7 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     // 패널이 SUBSCRIBE 할 때 background 가 보낸다 → inject 에게 재확인 요청
     requestResync();
   } else if (msg.type === 'PICK_START') {
+    delete document.documentElement.dataset.qaxtensionPicked;
     picker.start();
   } else if (msg.type === 'PICK_STOP') {
     picker.stop();
