@@ -1085,11 +1085,16 @@ test.afterAll(async () => {
 // 페이지 요소를 클릭해 피커 배선(오버레이 삽입 → 클릭 → 선택 마킹)을 검증한다.
 test('picker overlays, captures a clicked element, and records its selector', async () => {
   const page = await context.newPage();
-  await page.setContent('<button id="cta">눌러</button>');
+  // 실제 https 페이지여야 content script 가 주입된다 (about:blank/setContent 는 미주입).
+  await page.goto('https://example.com');
   // content/inject 가 주입될 시간을 확보
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionContent))
     .toBe('ready');
+  // 주입 확인 후 테스트용 타겟 요소를 삽입 (id 가 있어 cssPath 가 '#cta' 를 반환)
+  await page.evaluate(() => {
+    document.body.innerHTML = '<button id="cta">눌러</button>';
+  });
 
   let [sw] = context.serviceWorkers();
   if (!sw) sw = await context.waitForEvent('serviceworker');
