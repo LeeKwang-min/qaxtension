@@ -10,6 +10,7 @@ function createDefault(tabId: TabId): TabSessionState {
     lastPingNonce: null,
     picking: false,
     pickedElement: null,
+    requests: [],
     updatedAt: Date.now(),
   };
 }
