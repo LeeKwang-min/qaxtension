@@ -14,6 +14,7 @@ interface Props {
   treeKey: string;
   onTreeExpand: (path: number[]) => void;
   onTreeSelect: (path: number[]) => void;
+  onTreeHighlight: (path: number[] | null) => void;
 }
 
 function Swatch({ hex }: { hex: string }) {
@@ -62,6 +63,7 @@ export function InspectPanel({
   treeKey,
   onTreeExpand,
   onTreeSelect,
+  onTreeHighlight,
 }: Props) {
   // 고정 선택(picked)이 우선, 없으면 호버 미리보기(picking 중에만)
   const display = picked ?? (picking ? hovered : null);
@@ -87,7 +89,13 @@ export function InspectPanel({
       {injectReady && (
         <section style={{ marginTop: 12 }}>
           <h3 style={{ fontSize: 12, margin: '0 0 4px', color: '#333' }}>DOM 트리</h3>
-          <DomTree key={treeKey} childrenMap={treeChildren} onExpand={onTreeExpand} onSelect={onTreeSelect} />
+          <DomTree
+            key={treeKey}
+            childrenMap={treeChildren}
+            onExpand={onTreeExpand}
+            onSelect={onTreeSelect}
+            onHighlight={onTreeHighlight}
+          />
         </section>
       )}
 

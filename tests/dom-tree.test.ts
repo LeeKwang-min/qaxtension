@@ -46,6 +46,21 @@ describe('domChildren', () => {
     const nodes = domChildren(body, []);
     expect(nodes.map((n) => n.tagName)).toEqual(['div']);
   });
+
+  it('caps the number of returned children (large lists stay fast)', () => {
+    const items = Array.from({ length: 500 }, () => '<li></li>').join('');
+    const body = bodyOf(`<body><ul>${items}</ul></body>`);
+    const nodes = domChildren(body, [0], 100);
+    expect(nodes).toHaveLength(100);
+  });
+
+  it('defaults to a reasonable cap when no limit is given', () => {
+    const items = Array.from({ length: 1000 }, () => '<li></li>').join('');
+    const body = bodyOf(`<body><ul>${items}</ul></body>`);
+    const nodes = domChildren(body, [0]);
+    expect(nodes.length).toBeLessThan(1000);
+    expect(nodes.length).toBeGreaterThan(0);
+  });
 });
 
 describe('elementByPath', () => {

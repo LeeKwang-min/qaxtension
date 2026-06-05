@@ -12,6 +12,8 @@ export interface DomNode {
 }
 
 const MAX_PREVIEW = 40;
+/** 한 번에 직렬화/전송할 자식 수 상한 (대형 리스트의 메시지 직렬화 지연 방지) */
+export const DEFAULT_CHILDREN_LIMIT = 300;
 
 /** 루트 기준 인덱스 경로로 요소를 찾는다. 경로가 잘못되면 null. */
 export function elementByPath(root: Element, path: number[]): Element | null {
@@ -49,9 +51,15 @@ function toDomNode(el: Element, path: number[]): DomNode {
 /**
  * 루트 기준 path 노드의 직계 자식 요소들을 경량 DomNode 로 직렬화한다.
  * 트리를 lazy 하게 한 단계씩 펼치기 위한 단위. 경로가 잘못되면 빈 배열.
+ * `limit` 으로 자식 수를 제한해 대형 리스트에서도 메시지가 작게 유지된다
+ * (잘렸는지는 부모의 childElementCount 와 비교해 UI 가 판단).
  */
-export function domChildren(root: Element, path: number[]): DomNode[] {
+export function domChildren(root: Element, path: number[], limit = DEFAULT_CHILDREN_LIMIT): DomNode[] {
   const parent = elementByPath(root, path);
   if (!parent) return [];
-  return Array.from(parent.children).map((child, i) => toDomNode(child, [...path, i]));
+  const out: DomNode[] = [];
+  const kids = parent.children;
+  const n = Math.min(kids.length, Math.max(0, limit));
+  for (let i = 0; i < n; i++) out.push(toDomNode(kids[i], [...path, i]));
+  return out;
 }

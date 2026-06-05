@@ -147,4 +147,33 @@ test('content serves DOM_CHILDREN and inspects by path', async () => {
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.qaxtensionPicked), { timeout: 3000 })
     .toBe('#sec');
+
+  // HIGHLIGHT_PATH([1,0]) → 하이라이트 오버레이 표시, null → 숨김
+  await sw.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    void chrome.tabs.sendMessage(tab.id!, { type: 'HIGHLIGHT_PATH', path: [1, 0] });
+  });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const o = document.querySelector('[data-qaxtension-highlight]') as HTMLElement | null;
+          return o ? o.style.display : 'absent';
+        }),
+      { timeout: 3000 },
+    )
+    .toBe('block');
+
+  await sw.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    void chrome.tabs.sendMessage(tab.id!, { type: 'HIGHLIGHT_PATH', path: null });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const o = document.querySelector('[data-qaxtension-highlight]') as HTMLElement | null;
+        return o ? o.style.display : 'absent';
+      }),
+    )
+    .toBe('none');
 });

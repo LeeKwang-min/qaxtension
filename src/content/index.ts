@@ -6,7 +6,10 @@ import { collectEnv } from '../report/env';
 import { auditA11y, type ContrastStyle } from '../audit/a11y';
 import { collectResources } from '../audit/links';
 import { domChildren, elementByPath } from '../inspect/dom-tree';
+import { createHighlighter } from '../inspect/highlighter';
 import type { AuditRaw, StorageItem } from '../messaging/types';
+
+const highlighter = createHighlighter();
 
 // inject 에게 현재 readiness 를 다시 알려달라고 요청한다.
 function requestResync(): void {
@@ -184,6 +187,14 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender) => {
     void chrome.runtime.sendMessage(reply).catch((e: unknown) => {
       console.debug('[qaxtension] content sendMessage failed:', e);
     });
+  } else if (msg.type === 'HIGHLIGHT_PATH') {
+    if (msg.path === null) {
+      highlighter.hide();
+      return;
+    }
+    const el = elementByPath(document.body, msg.path);
+    if (el) highlighter.show(el);
+    else highlighter.hide();
   }
 });
 

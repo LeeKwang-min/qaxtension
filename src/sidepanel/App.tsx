@@ -159,6 +159,11 @@ export function App() {
     portRef.current.postMessage({ type: 'INSPECT_PATH', tabId, path } satisfies PortMessage);
   };
 
+  const highlightTreeNode = (path: number[] | null) => {
+    if (!portRef.current || tabId == null) return;
+    portRef.current.postMessage({ type: 'HIGHLIGHT_PATH', tabId, path } satisfies PortMessage);
+  };
+
   // 페이지가 바뀌면(또는 연결 해제) 트리 캐시를 비운다 (DomTree 는 treeKey 로 remount)
   useEffect(() => {
     setDomTree({});
@@ -222,6 +227,7 @@ export function App() {
             treeKey={state?.url ?? ''}
             onTreeExpand={requestTreeChildren}
             onTreeSelect={inspectTreeNode}
+            onTreeHighlight={highlightTreeNode}
           />
         ) : active === '네트워크' ? (
           <NetworkPanel

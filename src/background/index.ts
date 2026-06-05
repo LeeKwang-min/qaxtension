@@ -333,6 +333,9 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'INSPECT_PATH') {
       const cmd: RuntimeMessage = { type: 'INSPECT_PATH', path: msg.path };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'HIGHLIGHT_PATH') {
+      const cmd: RuntimeMessage = { type: 'HIGHLIGHT_PATH', path: msg.path };
+      chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
     }
   });
 

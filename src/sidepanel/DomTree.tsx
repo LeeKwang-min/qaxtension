@@ -8,6 +8,8 @@ interface Props {
   onExpand: (path: number[]) => void;
   /** 노드 선택 — 해당 path 요소를 검사(상세 표시) */
   onSelect: (path: number[]) => void;
+  /** 노드 호버 — 화면에서 해당 영역 하이라이트 (null 이면 숨김) */
+  onHighlight: (path: number[] | null) => void;
 }
 
 const keyOf = (p: number[]): string => p.join('.');
@@ -26,6 +28,7 @@ function TreeNode({
   expanded,
   selectedKey,
   onToggle,
+  onHighlight,
 }: {
   node: DomTreeNode;
   depth: number;
@@ -33,17 +36,20 @@ function TreeNode({
   expanded: Set<string>;
   selectedKey: string | null;
   onToggle: (node: DomTreeNode) => void;
+  onHighlight: (path: number[] | null) => void;
 }) {
   const k = keyOf(node.path);
   const open = expanded.has(k);
   const kids = childrenMap[k];
   const hasChildren = node.childElementCount > 0;
   const selected = selectedKey === k;
+  const hiddenCount = kids ? node.childElementCount - kids.length : 0;
 
   return (
     <div>
       <div
         onClick={() => onToggle(node)}
+        onMouseEnter={() => onHighlight(node.path)}
         style={{
           display: 'flex',
           gap: 4,
@@ -71,17 +77,25 @@ function TreeNode({
       </div>
       {open &&
         (kids ? (
-          kids.map((c) => (
-            <TreeNode
-              key={keyOf(c.path)}
-              node={c}
-              depth={depth + 1}
-              childrenMap={childrenMap}
-              expanded={expanded}
-              selectedKey={selectedKey}
-              onToggle={onToggle}
-            />
-          ))
+          <>
+            {kids.map((c) => (
+              <TreeNode
+                key={keyOf(c.path)}
+                node={c}
+                depth={depth + 1}
+                childrenMap={childrenMap}
+                expanded={expanded}
+                selectedKey={selectedKey}
+                onToggle={onToggle}
+                onHighlight={onHighlight}
+              />
+            ))}
+            {hiddenCount > 0 && (
+              <div style={{ paddingLeft: 4 + (depth + 1) * 12, fontSize: 10, color: '#aaa' }}>
+                …외 {hiddenCount}개 생략
+              </div>
+            )}
+          </>
         ) : (
           <div style={{ paddingLeft: 4 + (depth + 1) * 12, fontSize: 10, color: '#aaa' }}>로딩…</div>
         ))}
@@ -89,7 +103,7 @@ function TreeNode({
   );
 }
 
-export function DomTree({ childrenMap, onExpand, onSelect }: Props) {
+export function DomTree({ childrenMap, onExpand, onSelect, onHighlight }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const roots = childrenMap[''];
@@ -115,7 +129,10 @@ export function DomTree({ childrenMap, onExpand, onSelect }: Props) {
   }
 
   return (
-    <div style={{ maxHeight: 240, overflow: 'auto', border: '1px solid #eee', borderRadius: 4, padding: '2px 0' }}>
+    <div
+      onMouseLeave={() => onHighlight(null)}
+      style={{ maxHeight: 240, overflow: 'auto', border: '1px solid #eee', borderRadius: 4, padding: '2px 0' }}
+    >
       {roots.map((n) => (
         <TreeNode
           key={keyOf(n.path)}
@@ -125,6 +142,7 @@ export function DomTree({ childrenMap, onExpand, onSelect }: Props) {
           expanded={expanded}
           selectedKey={selectedKey}
           onToggle={onToggle}
+          onHighlight={onHighlight}
         />
       ))}
     </div>

@@ -376,7 +376,9 @@ export type RuntimeMessage =
   // content → background: DOM 트리 자식 결과
   | { type: 'DOM_CHILDREN_RESULT'; path: number[]; nodes: DomTreeNode[] }
   // background → content: 경로로 요소 검사 (트리에서 선택)
-  | { type: 'INSPECT_PATH'; path: number[] };
+  | { type: 'INSPECT_PATH'; path: number[] }
+  // background → content: 경로 요소 하이라이트 (path=null 이면 숨김)
+  | { type: 'HIGHLIGHT_PATH'; path: number[] | null };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -428,6 +430,8 @@ export type PortMessage =
   | { type: 'DOM_CHILDREN'; tabId: TabId; path: number[] }
   // 패널 → background: 경로로 요소 검사 (트리에서 선택)
   | { type: 'INSPECT_PATH'; tabId: TabId; path: number[] }
+  // 패널 → background: 경로 요소 하이라이트 (path=null 이면 숨김)
+  | { type: 'HIGHLIGHT_PATH'; tabId: TabId; path: number[] | null }
   // background → 패널: DOM 트리 자식 결과 (단발성, state 에 싣지 않음)
   | { type: 'DOM_CHILDREN_RESULT'; path: number[]; nodes: DomTreeNode[] }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
