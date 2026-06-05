@@ -30,6 +30,16 @@ if (!w.__qaxtensionInjectReady) {
   };
   const postStart = (record: NetStart): void => post({ type: 'NET_START', record });
   const postEnd = (id: string, end: NetEnd): void => post({ type: 'NET_END', id, end });
+  // 상대 경로(예: '/api/x')를 현재 문서 기준 절대 URL 로 정규화한다.
+  // background 는 페이지 location 이 없어 호스트 그룹핑이 안 되므로 여기서 해결한다.
+  // 정규화 실패 시 원본을 그대로 반환(fail-open).
+  const absUrl = (u: string): string => {
+    try {
+      return new URL(u, location.href).href;
+    } catch {
+      return u;
+    }
+  };
 
   // fetch 후킹 — 원본 보존
   try {
@@ -48,10 +58,10 @@ if (!w.__qaxtensionInjectReady) {
         try {
           if (input instanceof Request) {
             method = (init?.method ?? input.method ?? 'GET').toUpperCase();
-            url = input.url;
+            url = absUrl(input.url);
           } else {
             method = (init?.method ?? 'GET').toUpperCase();
-            url = String(input);
+            url = absUrl(String(input));
           }
           const body = init?.body;
           if (typeof body === 'string') requestBody = captureBody(body, null);
@@ -182,7 +192,7 @@ if (!w.__qaxtensionInjectReady) {
         this.__qaxNet = {
           id: nextNetId(),
           method: String(method).toUpperCase(),
-          url: String(url),
+          url: absUrl(String(url)),
           startedAt: 0,
         };
       } catch {
