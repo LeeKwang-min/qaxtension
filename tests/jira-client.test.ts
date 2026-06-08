@@ -41,7 +41,7 @@ describe('listProjects', () => {
     const { fn, calls } = fakeFetch(200, { values: [{ id: '1', key: 'QA', name: 'QA 프로젝트' }] });
     const projects = await listProjects(cfg, fn);
     expect(projects).toEqual([{ id: '1', key: 'QA', name: 'QA 프로젝트' }]);
-    expect(calls[0].url).toContain('/rest/api/3/project/search');
+    expect(calls[0].url).toBe('https://acme.atlassian.net/rest/api/3/project/search?maxResults=50');
   });
 });
 
@@ -62,5 +62,12 @@ describe('createIssue', () => {
     expect(res.key).toBe('QA-7');
     expect(res.url).toBe('https://acme.atlassian.net/browse/QA-7');
     expect(calls[0].init?.method).toBe('POST');
+    const sent = JSON.parse(calls[0].init?.body as string);
+    expect(sent.fields).toBeDefined();
+    expect(sent.fields.summary).toBe('s');
+  });
+  it('실패 응답이면 throw', async () => {
+    const { fn } = fakeFetch(400, { errorMessages: ['bad'] });
+    await expect(createIssue(cfg, { project: { id: '1' }, issuetype: { id: '10' }, summary: 's', description: { type: 'doc', version: 1, content: [] }, labels: [] }, fn)).rejects.toThrow();
   });
 });
