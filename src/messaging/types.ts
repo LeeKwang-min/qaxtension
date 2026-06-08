@@ -445,23 +445,7 @@ export type RuntimeMessage =
   | { type: 'RECORD_START' }
   | { type: 'RECORD_STOP' }
   // content → background: 기록된 상호작용 한 건
-  | { type: 'INTERACTION'; event: InteractionEvent }
-  // popup/패널 → background: JIRA 연결 테스트
-  | { type: 'JIRA_TEST'; config: JiraConfig }
-  // background → popup/패널: JIRA 연결 테스트 결과
-  | { type: 'JIRA_TEST_RESULT'; ok: boolean; displayName?: string; error?: string }
-  // popup/패널 → background: JIRA 프로젝트 목록 요청
-  | { type: 'JIRA_LIST_PROJECTS' }
-  // background → popup/패널: JIRA 프로젝트 목록 결과
-  | { type: 'JIRA_PROJECTS_RESULT'; projects: JiraProject[]; error?: string }
-  // popup/패널 → background: JIRA 이슈 타입 목록 요청
-  | { type: 'JIRA_LIST_ISSUETYPES'; projectId: string }
-  // background → popup/패널: JIRA 이슈 타입 목록 결과
-  | { type: 'JIRA_ISSUETYPES_RESULT'; issueTypes: JiraIssueType[]; error?: string }
-  // popup/패널 → background: JIRA 이슈 생성 요청
-  | { type: 'JIRA_CREATE'; payload: JiraCreatePayload }
-  // background → popup/패널: JIRA 이슈 생성 결과
-  | { type: 'JIRA_CREATE_RESULT'; result?: JiraIssueResult; error?: string };
+  | { type: 'INTERACTION'; event: InteractionEvent };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -553,7 +537,6 @@ export interface JiraConfig {
   site: string;
   email: string;
   token: string;
-  defaultProjectId?: string;
 }
 
 export interface JiraProject {

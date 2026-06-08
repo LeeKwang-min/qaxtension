@@ -36,7 +36,7 @@ export async function testConnection(
  * maxResults=50 고정.
  */
 export async function listProjects(cfg: JiraConfig, fetchFn: FetchLike = fetch): Promise<JiraProject[]> {
-  const res = await fetchFn(`${base(cfg)}/rest/api/3/project/search?maxResults=50`, { headers: jsonHeaders(cfg) });
+  const res = await fetchFn(`${base(cfg)}/rest/api/3/project/search?maxResults=100`, { headers: jsonHeaders(cfg) });
   if (!res.ok) throw new Error(`프로젝트 조회 실패 (${res.status})`);
   const body = (await res.json()) as { values: JiraProject[] };
   return body.values.map((p) => ({ id: p.id, key: p.key, name: p.name }));
@@ -73,7 +73,10 @@ export async function createIssue(
 
 /** dataURL 을 Blob 으로 변환한다 (첨부 파일 업로드용). */
 function dataUrlToBlob(dataUrl: string): Blob {
-  const [meta, b64] = dataUrl.split(',');
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) throw new Error('잘못된 dataURL 형식');
+  const meta = dataUrl.slice(0, comma);
+  const b64 = dataUrl.slice(comma + 1);
   const mime = /data:(.*?);/.exec(meta)?.[1] ?? 'image/png';
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);

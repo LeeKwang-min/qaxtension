@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  authHeader, testConnection, listProjects, listIssueTypes, createIssue,
+  authHeader, testConnection, listProjects, listIssueTypes, createIssue, attachScreenshot,
 } from '../src/integrations/jira/client';
 import type { JiraConfig } from '../src/messaging/types';
 
@@ -41,7 +41,7 @@ describe('listProjects', () => {
     const { fn, calls } = fakeFetch(200, { values: [{ id: '1', key: 'QA', name: 'QA 프로젝트' }] });
     const projects = await listProjects(cfg, fn);
     expect(projects).toEqual([{ id: '1', key: 'QA', name: 'QA 프로젝트' }]);
-    expect(calls[0].url).toBe('https://acme.atlassian.net/rest/api/3/project/search?maxResults=50');
+    expect(calls[0].url).toBe('https://acme.atlassian.net/rest/api/3/project/search?maxResults=100');
   });
 });
 
@@ -69,5 +69,28 @@ describe('createIssue', () => {
   it('실패 응답이면 throw', async () => {
     const { fn } = fakeFetch(400, { errorMessages: ['bad'] });
     await expect(createIssue(cfg, { project: { id: '1' }, issuetype: { id: '10' }, summary: 's', description: { type: 'doc', version: 1, content: [] }, labels: [] }, fn)).rejects.toThrow();
+  });
+});
+
+describe('attachScreenshot', () => {
+  // 1x1 투명 PNG 를 base64 로 인코딩한 최소 dataURL
+  const minPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  it('정상 dataURL → attachments URL 로 POST, ok=true 면 true 반환', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fn = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return new Response('[]', { status: 200 });
+    };
+    const result = await attachScreenshot(cfg, 'QA-7', minPng, fn);
+    expect(result).toBe(true);
+    expect(calls[0].url).toBe('https://acme.atlassian.net/rest/api/3/issue/QA-7/attachments');
+    expect((calls[0].init?.headers as Record<string, string>)['X-Atlassian-Token']).toBe('no-check');
+  });
+
+  it('fetch 가 ok=false 면 false 반환', async () => {
+    const fn = async () => new Response('error', { status: 403 });
+    const result = await attachScreenshot(cfg, 'QA-7', minPng, fn as typeof fetch);
+    expect(result).toBe(false);
   });
 });

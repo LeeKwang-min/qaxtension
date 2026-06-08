@@ -13,6 +13,9 @@ interface Props {
 export function SettingsPanel({ onBack, onTest, testResult, testing }: Props) {
   const [site, setSite] = useState('');
   const [email, setEmail] = useState('');
+  // token は設定 UI 특성상 패널 state 및 JIRA_TEST PortMessage 에 존재하나,
+  // 이는 모두 확장 프로그램 내부(패널↔background IPC)이며 외부 웹페이지/content script
+  // 에는 노출되지 않는다. 실제 JIRA HTTP 호출은 background 에서만 수행된다.
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
 

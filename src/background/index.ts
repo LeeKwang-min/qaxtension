@@ -395,58 +395,50 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'JIRA_TEST') {
       // JIRA 연결 테스트 — background fetch 로 CORS 우회
       void testConnection(msg.config)
-        .then((r) => port.postMessage({ type: 'JIRA_TEST_RESULT', ok: r.ok, displayName: r.displayName } satisfies PortMessage))
-        .catch((e: unknown) => port.postMessage({ type: 'JIRA_TEST_RESULT', ok: false, error: String(e) } satisfies PortMessage));
+        .then((r): PortMessage => ({ type: 'JIRA_TEST_RESULT', ok: r.ok, displayName: r.displayName }))
+        .catch((e: unknown): PortMessage => ({ type: 'JIRA_TEST_RESULT', ok: false, error: String(e) }))
+        .then((m) => { try { port.postMessage(m); } catch { /* 패널 닫힘 */ } });
     } else if (msg.type === 'JIRA_LIST_PROJECTS') {
       // 저장된 설정을 읽어 프로젝트 목록 조회
-      void (async () => {
+      void (async (): Promise<PortMessage> => {
         try {
           const cfg = await loadSettings();
-          if (!cfg) {
-            port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects: [], error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
-            return;
-          }
+          if (!cfg) return { type: 'JIRA_PROJECTS_RESULT', projects: [], error: 'JIRA 설정이 없습니다' };
           const projects = await listProjects(cfg);
-          port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects } satisfies PortMessage);
+          return { type: 'JIRA_PROJECTS_RESULT', projects };
         } catch (e) {
-          port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects: [], error: String(e) } satisfies PortMessage);
+          return { type: 'JIRA_PROJECTS_RESULT', projects: [], error: String(e) };
         }
-      })();
+      })().then((m) => { try { port.postMessage(m); } catch { /* 패널 닫힘 */ } });
     } else if (msg.type === 'JIRA_LIST_ISSUETYPES') {
       // 저장된 설정을 읽어 이슈 타입 목록 조회
-      void (async () => {
+      void (async (): Promise<PortMessage> => {
         try {
           const cfg = await loadSettings();
-          if (!cfg) {
-            port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
-            return;
-          }
+          if (!cfg) return { type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: 'JIRA 설정이 없습니다' };
           const issueTypes = await listIssueTypes(cfg, msg.projectId);
-          port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes } satisfies PortMessage);
+          return { type: 'JIRA_ISSUETYPES_RESULT', issueTypes };
         } catch (e) {
-          port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: String(e) } satisfies PortMessage);
+          return { type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: String(e) };
         }
-      })();
+      })().then((m) => { try { port.postMessage(m); } catch { /* 패널 닫힘 */ } });
     } else if (msg.type === 'JIRA_CREATE') {
       // 이슈 생성 + 스크린샷 첨부 (전부 background fetch)
-      void (async () => {
+      void (async (): Promise<PortMessage> => {
         try {
           const cfg = await loadSettings();
-          if (!cfg) {
-            port.postMessage({ type: 'JIRA_CREATE_RESULT', error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
-            return;
-          }
+          if (!cfg) return { type: 'JIRA_CREATE_RESULT', error: 'JIRA 설정이 없습니다' };
           const fields = buildIssueFields(msg.payload);
           const { key, url } = await createIssue(cfg, fields);
           let screenshotAttached = false;
           if (msg.payload.screenshot) {
             screenshotAttached = await attachScreenshot(cfg, key, msg.payload.screenshot).catch(() => false);
           }
-          port.postMessage({ type: 'JIRA_CREATE_RESULT', result: { key, url, screenshotAttached } } satisfies PortMessage);
+          return { type: 'JIRA_CREATE_RESULT', result: { key, url, screenshotAttached } };
         } catch (e) {
-          port.postMessage({ type: 'JIRA_CREATE_RESULT', error: String(e) } satisfies PortMessage);
+          return { type: 'JIRA_CREATE_RESULT', error: String(e) };
         }
-      })();
+      })().then((m) => { try { port.postMessage(m); } catch { /* 패널 닫힘 */ } });
     }
   });
 
