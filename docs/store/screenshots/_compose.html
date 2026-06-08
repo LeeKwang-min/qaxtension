@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Apple SD Gothic Neo", system-ui, sans-serif; }
+  .slide {
+    width: 1280px; height: 800px;
+    display: flex; align-items: center; gap: 64px;
+    padding: 0 90px;
+    background: linear-gradient(135deg, #eef2f7 0%, #dde5ee 100%);
+    overflow: hidden;
+  }
+  .panel-card {
+    flex: none;
+    background: #fff; border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(31,41,55,.18), 0 4px 12px rgba(31,41,55,.08);
+    padding: 14px; max-height: 700px;
+  }
+  .panel-card img { display: block; width: 430px; border-radius: 8px; }
+  .copy { flex: 1; }
+  .brand {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 18px; font-weight: 600; color: #475569;
+    background: #fff; border: 1px solid #cbd5e1; border-radius: 999px;
+    padding: 7px 16px; margin-bottom: 28px;
+  }
+  .title { font-size: 50px; font-weight: 800; color: #1f2937; line-height: 1.15; letter-spacing: -0.02em; }
+  .desc { font-size: 24px; color: #64748b; margin-top: 18px; line-height: 1.5; }
+  .badge {
+    display: inline-block; margin-top: 28px;
+    font-size: 17px; font-weight: 600; color: #0a7d28;
+    background: rgba(10,125,40,.08); border: 1px solid rgba(10,125,40,.22);
+    border-radius: 999px; padding: 8px 16px;
+  }
+</style>
+</head>
+<body>
+<div id="slides"></div>
+<script>
+const SLIDES = [
+  { img: '1-inspect',  title: '요소 검사 · DOM 트리', desc: '클릭 한 번으로 페이지 구조와 요소 정보를 확인', badge: null },
+  { img: '2-network',  title: 'API 모니터링',        desc: '실패한 요청·상태코드·응답 시간을 한눈에', badge: '실패 요청 자동 강조' },
+  { img: '3-console',  title: '콘솔 에러 수집',       desc: '페이지의 오류·경고를 자동으로 모아서 정리', badge: null },
+  { img: '4-audit',    title: '자동 품질 점검',       desc: '접근성·반응형·깨진 링크·쿠키까지 한 번에', badge: 'WCAG 접근성 검사 포함' },
+  { img: '5-record',   title: '버그 재현 절차 자동 기록', desc: '클릭·입력을 단계로 기록해 그대로 공유', badge: '비밀번호 자동 마스킹' },
+  { img: '6-report',   title: '원클릭 버그 리포트',    desc: '점검 결과를 마크다운·ZIP으로 즉시 생성', badge: null },
+];
+const root = document.getElementById('slides');
+SLIDES.forEach((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.id = 's' + (i + 1);
+  el.innerHTML = `
+    <div class="panel-card"><img src="trimmed/${s.img}.png"></div>
+    <div class="copy">
+      <div class="brand">🧪 QA Companion</div>
+      <div class="title">${s.title}</div>
+      <div class="desc">${s.desc}</div>
+      ${s.badge ? `<div class="badge">✓ ${s.badge}</div>` : ''}
+    </div>`;
+  root.appendChild(el);
+});
+</script>
+</body>
+</html>
