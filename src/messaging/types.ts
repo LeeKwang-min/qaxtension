@@ -537,6 +537,10 @@ export interface JiraConfig {
   site: string;
   email: string;
   token: string;
+  /** 설정 화면에서 지정한 기본 프로젝트 ID (없으면 undefined) */
+  defaultProjectId?: string;
+  /** 설정 화면에서 지정한 기본 이슈 타입 ID (없으면 undefined) */
+  defaultIssueTypeId?: string;
 }
 
 export interface JiraProject {

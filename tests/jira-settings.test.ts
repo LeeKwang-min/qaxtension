@@ -21,6 +21,20 @@ describe('jira settings', () => {
     expect(await loadSettings(area)).toEqual(cfg);
   });
 
+  it('defaultProjectId/defaultIssueTypeId 포함해 저장·로드 가능', async () => {
+    const area = fakeArea();
+    const cfgWithDefaults: JiraConfig = {
+      ...cfg,
+      defaultProjectId: 'proj-123',
+      defaultIssueTypeId: 'type-456',
+    };
+    await saveSettings(cfgWithDefaults, area);
+    const loaded = await loadSettings(area);
+    expect(loaded?.defaultProjectId).toBe('proj-123');
+    expect(loaded?.defaultIssueTypeId).toBe('type-456');
+    expect(loaded).toEqual(cfgWithDefaults);
+  });
+
   it('저장된 값이 없으면 null', async () => {
     expect(await loadSettings(fakeArea())).toBeNull();
   });

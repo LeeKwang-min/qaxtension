@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { JiraProject, JiraIssueType, JiraIssueResult, ReportInput } from '../messaging/types';
 import { suggestTitle } from '../integrations/jira/mapping';
+import { loadSettings } from '../integrations/jira/settings';
 
 interface Props {
   report: ReportInput;
@@ -23,9 +24,38 @@ export function JiraCreateSection(props: Props) {
   const [issueTypeId, setIssueTypeId] = useState('');
   const [summary, setSummary] = useState('');
 
-  // 섹션이 열리면 프로젝트 로드 + 제목 자동 제안
-  useEffect(() => { props.onLoadProjects(); setSummary(suggestTitle(report)); /* eslint-disable-next-line */ }, []);
-  useEffect(() => { if (projectId) { props.onSelectProject(projectId); setIssueTypeId(''); } /* eslint-disable-next-line */ }, [projectId]);
+  // 섹션이 열리면 프로젝트 로드 + 제목 자동 제안 + 기본값 프리필
+  useEffect(() => {
+    props.onLoadProjects();
+    setSummary(suggestTitle(report));
+    // 저장된 기본 프로젝트·이슈타입으로 프리필
+    void loadSettings().then((cfg) => {
+      if (cfg?.defaultProjectId) {
+        setProjectId(cfg.defaultProjectId);
+        props.onSelectProject(cfg.defaultProjectId);
+        if (cfg.defaultIssueTypeId) {
+          setIssueTypeId(cfg.defaultIssueTypeId);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (projectId) {
+      props.onSelectProject(projectId);
+      // 사용자가 프로젝트를 직접 바꿀 경우에만 issueTypeId 를 리셋
+      // (초기 프리필에서는 issueTypeId 가 이미 설정돼 있을 수 있으므로,
+      //  이 effect 가 마운트 이후 projectId 변경에서만 동작하도록
+      //  첫 렌더 후 변경분만 처리한다 — 기본값 로딩은 위 effect 에서 처리)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const handleProjectChange = (newProjectId: string) => {
+    setProjectId(newProjectId);
+    setIssueTypeId('');
+  };
 
   return (
     <section style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
@@ -33,7 +63,7 @@ export function JiraCreateSection(props: Props) {
 
       <label style={{ display: 'block', fontSize: 11, marginBottom: 6 }}>
         프로젝트
-        <select value={projectId} onChange={(e) => setProjectId(e.target.value)} style={{ width: '100%', marginTop: 2 }}>
+        <select value={projectId} onChange={(e) => handleProjectChange(e.target.value)} style={{ width: '100%', marginTop: 2 }}>
           <option value="">선택…</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.key})</option>)}
         </select>
