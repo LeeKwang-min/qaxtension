@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PortMessage, TabSessionState, TabId, DomTreeNode, JiraConfig } from '../messaging/types';
+import type { PortMessage, TabSessionState, TabId, DomTreeNode, JiraConfig, JiraProject, JiraIssueType, JiraIssueResult, ReportInput } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
@@ -33,6 +33,11 @@ export function App() {
   const [view, setView] = useState<'main' | 'settings'>('main');
   const [jiraTest, setJiraTest] = useState<{ ok: boolean; displayName?: string; error?: string } | null>(null);
   const [jiraTesting, setJiraTesting] = useState(false);
+  const [jiraProjects, setJiraProjects] = useState<JiraProject[]>([]);
+  const [jiraIssueTypes, setJiraIssueTypes] = useState<JiraIssueType[]>([]);
+  const [jiraResult, setJiraResult] = useState<JiraIssueResult | null>(null);
+  const [jiraError, setJiraError] = useState<string | null>(null);
+  const [jiraBusy, setJiraBusy] = useState(false);
   // DOM 트리: path 키('a.b') → 직계 자식들 (루트는 '')
   const [domTree, setDomTree] = useState<Record<string, DomTreeNode[]>>({});
   // "모두 접기" 신호 (증가 시 트리가 접힘)
@@ -79,6 +84,16 @@ export function App() {
         } else if (msg.type === 'JIRA_TEST_RESULT') {
           setJiraTesting(false);
           setJiraTest({ ok: msg.ok, displayName: msg.displayName, error: msg.error });
+        } else if (msg.type === 'JIRA_PROJECTS_RESULT') {
+          setJiraProjects(msg.projects);
+          if (msg.error) setJiraError(msg.error);
+        } else if (msg.type === 'JIRA_ISSUETYPES_RESULT') {
+          setJiraIssueTypes(msg.issueTypes);
+          if (msg.error) setJiraError(msg.error);
+        } else if (msg.type === 'JIRA_CREATE_RESULT') {
+          setJiraBusy(false);
+          setJiraResult(msg.result ?? null);
+          setJiraError(msg.error ?? null);
         }
       });
       port.onDisconnect.addListener(() => {
@@ -337,6 +352,18 @@ export function App() {
             collectingEnv={collectingEnv}
             onCaptureScreenshot={captureScreenshot}
             onCollectEnv={collectEnv}
+            jiraProjects={jiraProjects}
+            jiraIssueTypes={jiraIssueTypes}
+            jiraResult={jiraResult}
+            jiraError={jiraError}
+            jiraBusy={jiraBusy}
+            onJiraLoadProjects={() => { setJiraError(null); portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage); }}
+            onJiraSelectProject={(projectId: string) => portRef.current?.postMessage({ type: 'JIRA_LIST_ISSUETYPES', projectId } satisfies PortMessage)}
+            onJiraCreate={(projectId: string, issueTypeId: string, summary: string) => {
+              setJiraBusy(true); setJiraResult(null); setJiraError(null);
+              const report: ReportInput = { generatedAt: Date.now(), env: state?.env ?? null, pickedElement: state?.pickedElement ?? null, requests: state?.requests ?? [], logs: state?.logs ?? [], steps: state?.steps ?? [], screenshot };
+              portRef.current?.postMessage({ type: 'JIRA_CREATE', payload: { projectId, issueTypeId, summary, screenshot, report } } satisfies PortMessage);
+            }}
           />
         ) : (
           <p style={{ color: '#999' }}>{active} 패널 — 이후 Phase에서 구현</p>

@@ -6,11 +6,15 @@ import type {
   ElementInfo,
   ReportInput,
   Step,
+  JiraProject,
+  JiraIssueType,
+  JiraIssueResult,
 } from '../messaging/types';
 import { buildReport, DEFAULT_REPORT_OPTIONS, type ReportOptions } from '../report/builder';
 import { failedRequests } from '../capture/network';
 import { buildZip, type ZipFile } from '../report/zip';
 import { MarkdownPreview } from './MarkdownPreview';
+import { JiraCreateSection } from './JiraCreateSection';
 
 interface Props {
   env: EnvInfo | null;
@@ -25,6 +29,15 @@ interface Props {
   collectingEnv: boolean;
   onCaptureScreenshot: () => void;
   onCollectEnv: () => void;
+  // JIRA 티켓 생성 관련
+  jiraProjects: JiraProject[];
+  jiraIssueTypes: JiraIssueType[];
+  jiraResult: JiraIssueResult | null;
+  jiraError: string | null;
+  jiraBusy: boolean;
+  onJiraLoadProjects: () => void;
+  onJiraSelectProject: (projectId: string) => void;
+  onJiraCreate: (projectId: string, issueTypeId: string, summary: string) => void;
 }
 
 type Tool = 'arrow' | 'box';
@@ -116,6 +129,14 @@ export function ReportPanel({
   collectingEnv,
   onCaptureScreenshot,
   onCollectEnv,
+  jiraProjects,
+  jiraIssueTypes,
+  jiraResult,
+  jiraError,
+  jiraBusy,
+  onJiraLoadProjects,
+  onJiraSelectProject,
+  onJiraCreate,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -476,6 +497,20 @@ export function ReportPanel({
           </div>
         </details>
       </section>
+
+      {/* ── JIRA 티켓 생성 ── */}
+      <JiraCreateSection
+        report={reportInput()}
+        screenshot={annotatedDataUrl()}
+        projects={jiraProjects}
+        issueTypes={jiraIssueTypes}
+        result={jiraResult}
+        error={jiraError}
+        busy={jiraBusy}
+        onLoadProjects={onJiraLoadProjects}
+        onSelectProject={onJiraSelectProject}
+        onCreate={onJiraCreate}
+      />
     </div>
   );
 }
