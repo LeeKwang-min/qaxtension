@@ -1,4 +1,4 @@
-import type { ReportInput, AdfDoc, AdfNode, JiraCreatePayload } from '../../messaging/types';
+import type { ReportInput, AdfDoc, AdfNode, JiraCreatePayload, RequestRecord } from '../../messaging/types';
 
 /** URL 에서 pathname 만 추출 (파싱 실패 시 원본 반환) */
 function pathOf(url: string): string {
@@ -10,14 +10,21 @@ function pathOf(url: string): string {
 }
 
 /**
+ * 요청 레코드가 실패로 간주되는지 판정한다.
+ * ok === false | error 존재 | status >= 400 중 하나라도 해당하면 실패.
+ * webRequest-only 레코드(ok=null, status>=400)도 올바르게 감지한다.
+ */
+export function isFailedRequest(r: RequestRecord): boolean {
+  return r.ok === false || r.error != null || (r.status != null && r.status >= 400);
+}
+
+/**
  * 리포트 입력에서 JIRA 이슈 제목을 자동 제안한다.
  * 우선순위: 실패 API > 콘솔 에러 > 페이지 URL > 기본값
  */
 export function suggestTitle(input: ReportInput): string {
   // 1순위: 실패한 API 요청
-  const fail = input.requests.find(
-    (r) => r.ok === false || r.error != null || (r.status != null && r.status >= 400),
-  );
+  const fail = input.requests.find(isFailedRequest);
   if (fail) {
     return `[QA] ${fail.method} ${pathOf(fail.url)} ${fail.status ?? '오류'}`;
   }
@@ -77,7 +84,7 @@ export function buildDescriptionADF(input: ReportInput): AdfDoc {
   }
 
   // 실패한 API 섹션
-  const fails = input.requests.filter((r) => r.ok === false || r.error != null);
+  const fails = input.requests.filter(isFailedRequest);
   if (fails.length) {
     content.push(heading('실패한 API'));
     content.push(
