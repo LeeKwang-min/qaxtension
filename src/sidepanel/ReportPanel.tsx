@@ -37,7 +37,7 @@ interface Props {
   jiraBusy: boolean;
   onJiraLoadProjects: () => void;
   onJiraSelectProject: (projectId: string) => void;
-  onJiraCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null, report: ReportInput) => void;
+  onJiraCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null, markdown: string) => void;
 }
 
 type Tool = 'arrow' | 'box';
@@ -502,6 +502,7 @@ export function ReportPanel({
       <JiraCreateSection
         report={reportInput()}
         screenshot={annotatedDataUrl()}
+        markdown={markdown}
         projects={jiraProjects}
         issueTypes={jiraIssueTypes}
         result={jiraResult}

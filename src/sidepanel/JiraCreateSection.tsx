@@ -5,6 +5,8 @@ import { suggestTitle } from '../integrations/jira/mapping';
 interface Props {
   report: ReportInput;
   screenshot: string | null;
+  /** 미리보기와 동일한 markdown (ADF 변환용) */
+  markdown: string;
   projects: JiraProject[];
   issueTypes: JiraIssueType[];
   result: JiraIssueResult | null;
@@ -12,7 +14,7 @@ interface Props {
   busy: boolean;
   onLoadProjects: () => void;
   onSelectProject: (projectId: string) => void;
-  onCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null, report: ReportInput) => void;
+  onCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null, markdown: string) => void;
 }
 
 export function JiraCreateSection(props: Props) {
@@ -53,7 +55,7 @@ export function JiraCreateSection(props: Props) {
       <button
         type="button"
         disabled={!projectId || !issueTypeId || !summary || busy}
-        onClick={() => props.onCreate(projectId, issueTypeId, summary, props.screenshot, props.report)}
+        onClick={() => props.onCreate(projectId, issueTypeId, summary, props.screenshot, props.markdown)}
         style={{ fontWeight: 700 }}
       >
         {busy ? '생성 중…' : '티켓 생성'}

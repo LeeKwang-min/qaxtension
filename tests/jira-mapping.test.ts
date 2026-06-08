@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { suggestTitle, buildDescriptionADF, buildIssueFields, isFailedRequest } from '../src/integrations/jira/mapping';
-import type { ReportInput, RequestRecord, LogRecord, Step, ElementInfo } from '../src/messaging/types';
+import { suggestTitle, markdownToAdf, buildIssueFields, isFailedRequest } from '../src/integrations/jira/mapping';
+import type { ReportInput, RequestRecord, LogRecord } from '../src/messaging/types';
 
 function emptyInput(over: Partial<ReportInput> = {}): ReportInput {
   return {
@@ -60,56 +60,89 @@ describe('isFailedRequest', () => {
   });
 });
 
-describe('buildDescriptionADF', () => {
-  it('doc/version 형태이며 실패 API 섹션을 포함', () => {
-    const adf = buildDescriptionADF(emptyInput({ requests: [failReq()] }));
+describe('markdownToAdf', () => {
+  it('heading: ## 환경 → ADF heading level 3', () => {
+    const adf = markdownToAdf('## 환경');
     expect(adf.type).toBe('doc');
     expect(adf.version).toBe(1);
-    const json = JSON.stringify(adf);
-    expect(json).toContain('실패한 API');
-    expect(json).toContain('/login');
+    const h = adf.content[0];
+    expect(h.type).toBe('heading');
+    expect(h.attrs?.level).toBe(3);
+    expect(h.content?.[0]?.text).toBe('환경');
   });
 
-  it('데이터 없으면 fallback 안내 문단만', () => {
-    const adf = buildDescriptionADF(emptyInput());
-    expect(adf.content.length).toBeGreaterThan(0);
-    expect(JSON.stringify(adf)).toContain('첨부된 분석 데이터가 없습니다');
+  it('heading: # h1 → ADF heading level 2', () => {
+    const adf = markdownToAdf('# 제목');
+    const h = adf.content[0];
+    expect(h.type).toBe('heading');
+    expect(h.attrs?.level).toBe(2);
   });
 
-  it('steps/pickedElement/logs(error) 포함 시 각 섹션 제목이 ADF 에 존재', () => {
-    const step: Step = {
-      id: 's1', kind: 'click', selector: 'button#submit', label: '제출',
-      value: null, context: null, nearby: [], at: 1000,
-    };
-    const element: ElementInfo = {
-      tagName: 'BUTTON', id: 'submit', classList: [], selector: 'button#submit',
-      domPath: null, text: '제출',
-      colors: {
-        color: { hex: '#000', alpha: 1 },
-        backgroundColor: { hex: '#fff', alpha: 1 },
-        borderColor: { hex: '#000', alpha: 1 },
-      },
-      typography: { fontFamily: 'sans-serif', fontSize: '14px', fontWeight: '400', lineHeight: '1.5', letterSpacing: '0' },
-      boxModel: { width: '100px', height: '40px', margin: '0', padding: '8px', borderRadius: '4px', border: '1px solid' },
-      accessibility: { contrast: null } as ElementInfo['accessibility'],
-    } as unknown as ElementInfo;
-
-    const adf = buildDescriptionADF(emptyInput({
-      steps: [step],
-      pickedElement: element,
-      logs: [errLog('TypeError: cannot read')],
-    }));
+  it('table: 헤더+행 → ADF table/tableRow/tableHeader/tableCell 포함', () => {
+    const md = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const adf = markdownToAdf(md);
     const json = JSON.stringify(adf);
-    expect(json).toContain('재현 절차');
-    expect(json).toContain('검사한 요소');
-    expect(json).toContain('콘솔 에러·경고');
+    expect(json).toContain('"table"');
+    expect(json).toContain('"tableHeader"');
+    expect(json).toContain('"tableCell"');
+    expect(json).toContain('"A"');
+    expect(json).toContain('"1"');
   });
 
-  it('webRequest-only 레코드(ok=null, status=500)가 "실패한 API" 섹션에 나타남 (회귀 방지)', () => {
-    const adf = buildDescriptionADF(emptyInput({ requests: [webReqOnlyFailReq()] }));
-    const json = JSON.stringify(adf);
-    expect(json).toContain('실패한 API');
-    expect(json).toContain('/data');
+  it('table: tableRow 는 헤더 1개 + 데이터 행만큼', () => {
+    const md = '| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |';
+    const adf = markdownToAdf(md);
+    const table = adf.content[0];
+    // tableRow 3개: 헤더행 1 + 데이터행 2
+    expect(table.content?.length).toBe(3);
+    expect(table.content?.[0].content?.[0].type).toBe('tableHeader');
+    expect(table.content?.[1].content?.[0].type).toBe('tableCell');
+  });
+
+  it('bold: **굵게** → marks:[{type:strong}]', () => {
+    const adf = markdownToAdf('**굵게**');
+    const para = adf.content[0];
+    const node = para.content?.[0];
+    expect(node?.type).toBe('text');
+    expect(node?.text).toBe('굵게');
+    expect(node?.marks).toEqual([{ type: 'strong' }]);
+  });
+
+  it('italic: _기울임_ → marks:[{type:em}]', () => {
+    const adf = markdownToAdf('_기울임_');
+    const para = adf.content[0];
+    const node = para.content?.[0];
+    expect(node?.marks).toEqual([{ type: 'em' }]);
+  });
+
+  it('code: `코드` → marks:[{type:code}]', () => {
+    const adf = markdownToAdf('`코드`');
+    const para = adf.content[0];
+    const node = para.content?.[0];
+    expect(node?.marks).toEqual([{ type: 'code' }]);
+  });
+
+  it('list: - 항목1\\n- 항목2 → bulletList + listItem 2개', () => {
+    const adf = markdownToAdf('- 항목1\n- 항목2');
+    const bl = adf.content[0];
+    expect(bl.type).toBe('bulletList');
+    expect(bl.content?.length).toBe(2);
+    expect(bl.content?.[0].type).toBe('listItem');
+    expect(bl.content?.[1].type).toBe('listItem');
+  });
+
+  it('빈 markdown → doc with 빈 paragraph (깨지지 않음)', () => {
+    const adf = markdownToAdf('');
+    expect(adf.type).toBe('doc');
+    expect(adf.version).toBe(1);
+    expect(adf.content.length).toBe(1);
+    expect(adf.content[0].type).toBe('paragraph');
+  });
+
+  it('공백만 있는 markdown → 빈 paragraph', () => {
+    const adf = markdownToAdf('   \n\n   ');
+    expect(adf.content.length).toBe(1);
+    expect(adf.content[0].type).toBe('paragraph');
   });
 });
 
@@ -117,12 +150,24 @@ describe('buildIssueFields', () => {
   it('project/issuetype/summary/labels 를 구성하고 qa-companion 라벨 포함', () => {
     const fields = buildIssueFields({
       projectId: '10001', issueTypeId: '10002', summary: '제목',
-      screenshot: null, report: emptyInput(),
+      screenshot: null, descriptionMarkdown: '## 테스트\n\n내용',
     });
     expect(fields.project).toEqual({ id: '10001' });
     expect(fields.issuetype).toEqual({ id: '10002' });
     expect(fields.summary).toBe('제목');
     expect(fields.labels).toContain('qa-companion');
     expect(fields.description.type).toBe('doc');
+  });
+
+  it('descriptionMarkdown 의 내용이 ADF 에 반영됨', () => {
+    const fields = buildIssueFields({
+      projectId: '10001', issueTypeId: '10002', summary: '제목',
+      screenshot: null,
+      descriptionMarkdown: '## 환경\n\n| A | B |\n| --- | --- |\n| 1 | 2 |',
+    });
+    const json = JSON.stringify(fields.description);
+    expect(json).toContain('"heading"');
+    expect(json).toContain('"table"');
+    expect(json).toContain('"A"');
   });
 });

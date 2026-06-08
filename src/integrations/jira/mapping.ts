@@ -1,4 +1,5 @@
-import type { ReportInput, AdfDoc, AdfNode, JiraCreatePayload, RequestRecord } from '../../messaging/types';
+import type { AdfDoc, AdfNode, JiraCreatePayload, ReportInput, RequestRecord } from '../../messaging/types';
+import { parseBlocks, type Block, type Inline } from '../../report/markdown-render';
 
 /** URL 에서 pathname 만 추출 (파싱 실패 시 원본 반환) */
 function pathOf(url: string): string {
@@ -40,102 +41,57 @@ export function suggestTitle(input: ReportInput): string {
   return url ? `[QA] ${url} 이슈` : '[QA] 이슈';
 }
 
-// ── ADF 빌더 헬퍼 ─────────────────────────────────────────────
+// ── Markdown → ADF 변환 ────────────────────────────────────────
 
-const text = (s: string): AdfNode => ({ type: 'text', text: s });
+function inlinesToAdf(inlines: Inline[]): AdfNode[] {
+  return inlines
+    .filter((t) => t.value !== '')
+    .map((t) => {
+      if (t.type === 'bold') return { type: 'text', text: t.value, marks: [{ type: 'strong' }] };
+      if (t.type === 'italic') return { type: 'text', text: t.value, marks: [{ type: 'em' }] };
+      if (t.type === 'code') return { type: 'text', text: t.value, marks: [{ type: 'code' }] };
+      return { type: 'text', text: t.value };
+    });
+}
 
-const para = (s: string): AdfNode => ({
-  type: 'paragraph',
-  content: [text(s)],
-});
+// ADF paragraph 는 content 가 비면 안 되는 경우가 있어, 빈 줄은 텍스트 없는 paragraph 로
+function paragraphFrom(inlines: Inline[]): AdfNode {
+  const content = inlinesToAdf(inlines);
+  return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
+}
 
-const heading = (s: string): AdfNode => ({
-  type: 'heading',
-  attrs: { level: 3 },
-  content: [text(s)],
-});
+function cellFrom(kind: 'tableHeader' | 'tableCell', inlines: Inline[]): AdfNode {
+  return { type: kind, attrs: {}, content: [paragraphFrom(inlines)] };
+}
 
-const bulletList = (items: string[]): AdfNode => ({
-  type: 'bulletList',
-  content: items.map((i) => ({
-    type: 'listItem',
-    content: [para(i)],
-  })),
-});
+function blocksToAdf(blocks: Block[]): AdfNode[] {
+  return blocks.map((b): AdfNode => {
+    switch (b.type) {
+      case 'heading':
+        return { type: 'heading', attrs: { level: b.level === 1 ? 2 : 3 }, content: inlinesToAdf(b.inlines) };
+      case 'paragraph':
+        return paragraphFrom(b.inlines);
+      case 'list':
+        return { type: 'bulletList', content: b.items.map((it) => ({ type: 'listItem', content: [paragraphFrom(it)] })) };
+      case 'table':
+        return {
+          type: 'table',
+          content: [
+            { type: 'tableRow', content: b.headers.map((h) => cellFrom('tableHeader', h)) },
+            ...b.rows.map((row) => ({ type: 'tableRow', content: row.map((c) => cellFrom('tableCell', c)) })),
+          ],
+        };
+    }
+  });
+}
 
 /**
- * 리포트 입력에서 Atlassian Document Format(ADF) 설명 문서를 빌드한다.
- * JIRA REST API v3 는 description 에 ADF JSON 을 요구한다.
+ * markdown 문자열을 Atlassian Document Format(ADF) doc 으로 변환한다.
+ * 미리보기와 동일한 parseBlocks 를 재사용하므로 티켓 본문 = 미리보기.
  */
-export function buildDescriptionADF(input: ReportInput): AdfDoc {
-  const content: AdfNode[] = [];
-
-  // 환경 정보 섹션
-  if (input.env) {
-    content.push(heading('환경'));
-    content.push(
-      bulletList([
-        `URL: ${input.env.url ?? '(알 수 없음)'}`,
-        `OS: ${input.env.os}`,
-        `뷰포트: ${input.env.viewport.width}×${input.env.viewport.height}`,
-        `언어: ${input.env.language}`,
-      ]),
-    );
-  }
-
-  // 실패한 API 섹션
-  const fails = input.requests.filter(isFailedRequest);
-  if (fails.length) {
-    content.push(heading('실패한 API'));
-    content.push(
-      bulletList(
-        fails.map((r) => `${r.status ?? r.error ?? '오류'} ${r.method} ${pathOf(r.url)}`),
-      ),
-    );
-  }
-
-  // 콘솔 에러·경고 섹션
-  const errors = input.logs.filter((l) => l.level === 'error' || l.level === 'warn');
-  if (errors.length) {
-    content.push(heading('콘솔 에러·경고'));
-    content.push(
-      bulletList(errors.map((l) => `[${l.level}] ${l.text.slice(0, 200)}`)),
-    );
-  }
-
-  // 검사한 요소 섹션
-  if (input.pickedElement) {
-    content.push(heading('검사한 요소'));
-    content.push(
-      bulletList([
-        `셀렉터: ${input.pickedElement.selector}`,
-        input.pickedElement.text
-          ? `텍스트: ${input.pickedElement.text}`
-          : '텍스트: —',
-      ]),
-    );
-  }
-
-  // 재현 절차 섹션
-  if (input.steps.length) {
-    content.push(heading('재현 절차'));
-    content.push({
-      type: 'orderedList',
-      content: input.steps.map((s) => ({
-        type: 'listItem',
-        content: [
-          para(`${s.kind}: ${s.selector ?? ''} ${s.value ?? ''}`.trim()),
-        ],
-      })),
-    });
-  }
-
-  // 데이터가 없으면 안내 문단만
-  if (content.length === 0) {
-    content.push(para('첨부된 분석 데이터가 없습니다.'));
-  }
-
-  return { type: 'doc', version: 1, content };
+export function markdownToAdf(markdown: string): AdfDoc {
+  const content = blocksToAdf(parseBlocks(markdown));
+  return { type: 'doc', version: 1, content: content.length ? content : [{ type: 'paragraph' }] };
 }
 
 /** buildIssueFields 의 반환 타입 */
@@ -151,13 +107,14 @@ export interface JiraFields {
  * JIRA 이슈 생성 페이로드의 fields 객체를 빌드한다.
  * project/issuetype/summary/description/labels 를 구성하며,
  * labels 에는 항상 'qa-companion' 태그를 포함한다.
+ * description 은 미리보기와 동일한 markdown 을 ADF 로 변환해 사용한다.
  */
 export function buildIssueFields(payload: JiraCreatePayload): JiraFields {
   return {
     project: { id: payload.projectId },
     issuetype: { id: payload.issueTypeId },
     summary: payload.summary,
-    description: buildDescriptionADF(payload.report),
+    description: markdownToAdf(payload.descriptionMarkdown),
     labels: ['qa-companion'],
   };
 }

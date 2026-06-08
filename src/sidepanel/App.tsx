@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PortMessage, TabSessionState, TabId, DomTreeNode, JiraConfig, JiraProject, JiraIssueType, JiraIssueResult, ReportInput } from '../messaging/types';
+import type { PortMessage, TabSessionState, TabId, DomTreeNode, JiraConfig, JiraProject, JiraIssueType, JiraIssueResult } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
@@ -360,9 +360,9 @@ export function App() {
             jiraBusy={jiraBusy}
             onJiraLoadProjects={() => { setJiraError(null); setJiraResult(null); setJiraIssueTypes([]); portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage); }}
             onJiraSelectProject={(projectId: string) => portRef.current?.postMessage({ type: 'JIRA_LIST_ISSUETYPES', projectId } satisfies PortMessage)}
-            onJiraCreate={(projectId: string, issueTypeId: string, summary: string, screenshot: string | null, report: ReportInput) => {
+            onJiraCreate={(projectId: string, issueTypeId: string, summary: string, screenshot: string | null, markdown: string) => {
               setJiraBusy(true); setJiraResult(null); setJiraError(null);
-              portRef.current?.postMessage({ type: 'JIRA_CREATE', payload: { projectId, issueTypeId, summary, screenshot, report } } satisfies PortMessage);
+              portRef.current?.postMessage({ type: 'JIRA_CREATE', payload: { projectId, issueTypeId, summary, screenshot, descriptionMarkdown: markdown } } satisfies PortMessage);
             }}
           />
         ) : (

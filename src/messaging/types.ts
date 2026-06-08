@@ -556,6 +556,7 @@ export interface AdfNode {
   attrs?: Record<string, unknown>;
   content?: AdfNode[];
   text?: string;
+  marks?: { type: string }[];
 }
 export interface AdfDoc {
   type: 'doc';
@@ -569,8 +570,8 @@ export interface JiraCreatePayload {
   summary: string;
   /** 주석 적용된 스크린샷 dataURL (없으면 null) */
   screenshot: string | null;
-  /** 리포트 데이터 (설명 ADF 빌드용) */
-  report: ReportInput;
+  /** 미리보기와 동일한 markdown (background 에서 ADF 로 변환) */
+  descriptionMarkdown: string;
 }
 
 export interface JiraIssueResult {
