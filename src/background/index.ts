@@ -6,6 +6,9 @@ import { stepFromEvent, pushStep, appendNavigate } from '../capture/recorder';
 import { checkLinks } from '../audit/link-check';
 import { toStorageEntries, type CookieLike } from '../audit/storage';
 import { computeWindowSize } from '../audit/responsive';
+import { loadSettings } from '../integrations/jira/settings';
+import { testConnection, listProjects, listIssueTypes, createIssue, attachScreenshot } from '../integrations/jira/client';
+import { buildIssueFields } from '../integrations/jira/mapping';
 
 // 액션 아이콘 클릭 시 사이드 패널 열기
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -389,6 +392,43 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === 'HIGHLIGHT_PATH') {
       const cmd: RuntimeMessage = { type: 'HIGHLIGHT_PATH', path: msg.path };
       chrome.tabs.sendMessage(msg.tabId, cmd).catch(() => {});
+    } else if (msg.type === 'JIRA_TEST') {
+      // JIRA 연결 테스트 — background fetch 로 CORS 우회
+      void testConnection(msg.config)
+        .then((r) => port.postMessage({ type: 'JIRA_TEST_RESULT', ok: r.ok, displayName: r.displayName } satisfies PortMessage))
+        .catch((e: unknown) => port.postMessage({ type: 'JIRA_TEST_RESULT', ok: false, error: String(e) } satisfies PortMessage));
+    } else if (msg.type === 'JIRA_LIST_PROJECTS') {
+      // 저장된 설정을 읽어 프로젝트 목록 조회
+      void loadSettings().then((cfg) => {
+        if (!cfg) return port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects: [], error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
+        return listProjects(cfg)
+          .then((projects) => port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects } satisfies PortMessage))
+          .catch((e: unknown) => port.postMessage({ type: 'JIRA_PROJECTS_RESULT', projects: [], error: String(e) } satisfies PortMessage));
+      });
+    } else if (msg.type === 'JIRA_LIST_ISSUETYPES') {
+      // 저장된 설정을 읽어 이슈 타입 목록 조회
+      void loadSettings().then((cfg) => {
+        if (!cfg) return port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
+        return listIssueTypes(cfg, msg.projectId)
+          .then((issueTypes) => port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes } satisfies PortMessage))
+          .catch((e: unknown) => port.postMessage({ type: 'JIRA_ISSUETYPES_RESULT', issueTypes: [], error: String(e) } satisfies PortMessage));
+      });
+    } else if (msg.type === 'JIRA_CREATE') {
+      // 이슈 생성 + 스크린샷 첨부 (전부 background fetch)
+      void loadSettings().then(async (cfg) => {
+        if (!cfg) return port.postMessage({ type: 'JIRA_CREATE_RESULT', error: 'JIRA 설정이 없습니다' } satisfies PortMessage);
+        try {
+          const fields = buildIssueFields(msg.payload);
+          const { key, url } = await createIssue(cfg, fields);
+          let screenshotAttached = false;
+          if (msg.payload.screenshot) {
+            screenshotAttached = await attachScreenshot(cfg, key, msg.payload.screenshot).catch(() => false);
+          }
+          port.postMessage({ type: 'JIRA_CREATE_RESULT', result: { key, url, screenshotAttached } } satisfies PortMessage);
+        } catch (e) {
+          port.postMessage({ type: 'JIRA_CREATE_RESULT', error: String(e) } satisfies PortMessage);
+        }
+      });
     }
   });
 
