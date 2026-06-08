@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PortMessage, TabSessionState, TabId, DomTreeNode } from '../messaging/types';
+import type { PortMessage, TabSessionState, TabId, DomTreeNode, JiraConfig } from '../messaging/types';
 import { InspectPanel } from './InspectPanel';
 import { NetworkPanel } from './NetworkPanel';
 import { ConsolePanel } from './ConsolePanel';
 import { ReportPanel } from './ReportPanel';
 import { AuditPanel } from './AuditPanel';
 import { RecordPanel } from './RecordPanel';
+import { SettingsPanel } from './SettingsPanel';
 
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
@@ -29,6 +30,9 @@ export function App() {
   const [capturing, setCapturing] = useState(false);
   const [collectingEnv, setCollectingEnv] = useState(false);
   const [runningAudit, setRunningAudit] = useState(false);
+  const [view, setView] = useState<'main' | 'settings'>('main');
+  const [jiraTest, setJiraTest] = useState<{ ok: boolean; displayName?: string; error?: string } | null>(null);
+  const [jiraTesting, setJiraTesting] = useState(false);
   // DOM 트리: path 키('a.b') → 직계 자식들 (루트는 '')
   const [domTree, setDomTree] = useState<Record<string, DomTreeNode[]>>({});
   // "모두 접기" 신호 (증가 시 트리가 접힘)
@@ -72,6 +76,9 @@ export function App() {
           if (msg.dataUrl) setScreenshot(msg.dataUrl);
         } else if (msg.type === 'DOM_CHILDREN_RESULT') {
           setDomTree((prev) => ({ ...prev, [msg.path.join('.')]: msg.nodes }));
+        } else if (msg.type === 'JIRA_TEST_RESULT') {
+          setJiraTesting(false);
+          setJiraTest({ ok: msg.ok, displayName: msg.displayName, error: msg.error });
         }
       });
       port.onDisconnect.addListener(() => {
@@ -211,11 +218,26 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, state?.injectReady, tabId, domTree['']]);
 
+  if (view === 'settings') {
+    return (
+      <SettingsPanel
+        onBack={() => setView('main')}
+        onTest={(config: JiraConfig) => {
+          setJiraTest(null); setJiraTesting(true);
+          portRef.current?.postMessage({ type: 'JIRA_TEST', config } satisfies PortMessage);
+        }}
+        testResult={jiraTest}
+        testing={jiraTesting}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-title">
+        <div className="app-title" style={{ width: '100%' }}>
           <span className="logo">🧪</span> QA Companion
+          <button onClick={() => setView('settings')} title="설정" style={{ marginLeft: 'auto', border: 'none', background: 'none', fontSize: 15, cursor: 'pointer', padding: 0 }}>⚙️</button>
         </div>
         <div data-testid="status" className={`status-badge ${state?.injectReady ? 'on' : 'off'}`}>
           {state?.injectReady ? '🟢 주입됨' : '⚪ 대기 중'}
