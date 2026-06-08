@@ -34,6 +34,7 @@ export function SettingsPanel({ onBack, onTest, testResult, testing }: Props) {
     <div className="app">
       <header className="app-header">
         <button onClick={onBack}>← 뒤로</button>
+        {/* marginTop: 8 — "← 뒤로" 버튼과의 수직 간격 */}
         <div className="app-title" style={{ marginTop: 8 }}>⚙️ 설정</div>
       </header>
       <section style={{ marginTop: 8 }}>

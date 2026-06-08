@@ -221,7 +221,7 @@ export function App() {
   if (view === 'settings') {
     return (
       <SettingsPanel
-        onBack={() => setView('main')}
+        onBack={() => { setJiraTest(null); setJiraTesting(false); setView('main'); }}
         onTest={(config: JiraConfig) => {
           setJiraTest(null); setJiraTesting(true);
           portRef.current?.postMessage({ type: 'JIRA_TEST', config } satisfies PortMessage);
@@ -237,7 +237,7 @@ export function App() {
       <header className="app-header">
         <div className="app-title" style={{ width: '100%' }}>
           <span className="logo">🧪</span> QA Companion
-          <button onClick={() => setView('settings')} title="설정" style={{ marginLeft: 'auto', border: 'none', background: 'none', fontSize: 15, cursor: 'pointer', padding: 0 }}>⚙️</button>
+          <button onClick={() => { setJiraTest(null); setJiraTesting(false); setView('settings'); }} title="설정" style={{ marginLeft: 'auto', border: 'none', background: 'none', fontSize: 15, cursor: 'pointer', padding: 0 }}>⚙️</button>
         </div>
         <div data-testid="status" className={`status-badge ${state?.injectReady ? 'on' : 'off'}`}>
           {state?.injectReady ? '🟢 주입됨' : '⚪ 대기 중'}
