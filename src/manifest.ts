@@ -6,7 +6,19 @@ export default defineManifest({
   version: '0.1.0',
   description: '비개발자를 위한 웹 서비스 QA 유틸리티',
   minimum_chrome_version: '114',
-  action: { default_title: 'QA Companion' },
+  icons: {
+    16: 'icons/icon16.png',
+    48: 'icons/icon48.png',
+    128: 'icons/icon128.png',
+  },
+  action: {
+    default_title: 'QA Companion',
+    default_icon: {
+      16: 'icons/icon16.png',
+      48: 'icons/icon48.png',
+      128: 'icons/icon128.png',
+    },
+  },
   background: { service_worker: 'src/background/index.ts', type: 'module' },
   side_panel: { default_path: 'src/sidepanel/index.html' },
   permissions: ['sidePanel', 'storage', 'tabs', 'scripting', 'webRequest', 'clipboardWrite', 'cookies'],

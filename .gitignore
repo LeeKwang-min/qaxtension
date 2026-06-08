@@ -13,3 +13,5 @@ src/manifest.d.ts
 src/**/*.js
 src/**/*.d.ts
 .gstack/
+# 웹스토어 업로드 패키지 (dist 에서 재생성)
+qa-companion-*.zip

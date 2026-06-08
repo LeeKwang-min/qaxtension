@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경: slate-800 라운드 사각형 -->
+  <rect width="128" height="128" rx="28" fill="#1f2937"/>
+  <!-- 손잡이 (렌즈 아래에 깔림) -->
+  <polygon points="80.24,71.76 104.24,95.76 95.76,104.24 71.76,80.24" fill="#ffffff"/>
+  <!-- 돋보기 링 = 흰 원 - 배경색 원 -->
+  <circle cx="54" cy="54" r="35" fill="#ffffff"/>
+  <circle cx="54" cy="54" r="24" fill="#1f2937"/>
+  <!-- 렌즈 안 체크마크 (success green) -->
+  <polygon points="46.55,50.24 50,57.5 64.52,37.15 71.48,42.85 50,66.5 39.45,55.76" fill="#34d399"/>
+</svg>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QA Companion — 개인정보처리방침 / Privacy Policy</title>
+  <meta name="description" content="QA Companion Chrome 확장 프로그램의 개인정보처리방침. 모든 데이터는 브라우저 내부에만 저장되며 외부 서버로 전송되지 않습니다." />
+  <style>
+    :root {
+      --accent: #1f2937;
+      --fg: #1f2937;
+      --fg-muted: #6b7280;
+      --fg-subtle: #9ca3af;
+      --bg: #ffffff;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --success: #0a7d28;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+        "Noto Sans KR", sans-serif;
+      color: var(--fg);
+      background: var(--surface);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
+    header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 24px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 8px;
+    }
+    .logo {
+      width: 48px; height: 48px; border-radius: 12px; flex: none;
+      background: var(--accent);
+      display: grid; place-items: center;
+    }
+    .logo svg { width: 30px; height: 30px; display: block; }
+    h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+    .sub { color: var(--fg-muted); font-size: 13px; margin-top: 2px; }
+    .card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+      padding: 28px 28px 32px; margin-top: 24px;
+    }
+    h2 {
+      font-size: 18px; margin: 32px 0 10px; letter-spacing: -0.01em;
+      padding-top: 8px;
+    }
+    h2:first-of-type { margin-top: 4px; }
+    .lang-label {
+      display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--fg-subtle); text-transform: uppercase;
+      border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+      margin: 8px 0 4px;
+    }
+    h3 { font-size: 15px; margin: 22px 0 6px; }
+    p { margin: 8px 0; }
+    a { color: var(--accent); }
+    table {
+      width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px;
+      display: block; overflow-x: auto;
+    }
+    th, td { text-align: left; padding: 9px 12px; border: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--surface); font-weight: 600; white-space: nowrap; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(10,125,40,0.08); color: var(--success);
+      border: 1px solid rgba(10,125,40,0.22); border-radius: 999px;
+      padding: 4px 12px; font-size: 13px; font-weight: 600; margin: 4px 0 12px;
+    }
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+    .updated { color: var(--fg-subtle); font-size: 13px; }
+    footer {
+      margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+      color: var(--fg-subtle); font-size: 13px; text-align: center;
+    }
+    code { background: var(--surface); padding: 1px 6px; border-radius: 5px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="80.24,71.76 104.24,95.76 95.76,104.24 71.76,80.24" fill="#ffffff"/>
+          <circle cx="54" cy="54" r="35" fill="#ffffff"/>
+          <circle cx="54" cy="54" r="24" fill="#1f2937"/>
+          <polygon points="46.55,50.24 50,57.5 64.52,37.15 71.48,42.85 50,66.5 39.45,55.76" fill="#34d399"/>
+        </svg>
+      </div>
+      <div>
+        <h1>QA Companion — 개인정보처리방침</h1>
+        <div class="sub">Privacy Policy · Chrome 확장 프로그램</div>
+      </div>
+    </header>
+
+    <p class="updated">최종 수정일 / Last updated: 2026-06-08</p>
+    <div class="pill">🔒 모든 데이터는 브라우저 내부에만 저장 · 외부 서버 전송 없음</div>
+
+    <div class="card">
+      <!-- ===================== 한국어 ===================== -->
+      <span class="lang-label">한국어</span>
+
+      <h2>1. 개요</h2>
+      <p>QA Companion(이하 “본 확장 프로그램”)은 비개발자도 웹 서비스의 품질을 점검할 수 있도록 돕는 QA 유틸리티입니다. 본 확장 프로그램은 사용자가 직접 검사를 실행한 웹 페이지에 한해 동작하며, 수집한 데이터는 <strong>사용자의 브라우저 내부에만 저장</strong>됩니다.</p>
+
+      <h2>2. 수집하는 정보</h2>
+      <p>본 확장 프로그램은 사용자가 검사를 실행한 시점에, 검사 대상 페이지로부터 다음 정보를 <strong>로컬에서</strong> 처리합니다.</p>
+      <table>
+        <thead><tr><th>구분</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>콘솔 로그</td><td>검사 대상 페이지가 출력하는 콘솔 메시지</td></tr>
+          <tr><td>네트워크 요청 정보</td><td>요청 URL, 메서드, 상태 코드, 타이밍, 캐시 여부 (요청/응답 메타데이터)</td></tr>
+          <tr><td>성능 지표</td><td>페이지 로딩 및 렌더링 관련 측정값</td></tr>
+          <tr><td>사용자 행동 기록</td><td>재현 절차 작성을 위한 클릭·입력·이동 기록 (※ 비밀번호 입력은 마스킹되며, 긴 입력값은 잘려서 저장됨)</td></tr>
+          <tr><td>DOM·요소 정보</td><td>페이지 구조, 요소 속성, 색상, 접근성 점검 결과</td></tr>
+          <tr><td>스토리지 점검</td><td>검사 대상 페이지의 쿠키·localStorage·sessionStorage 항목 (점검 목적의 읽기)</td></tr>
+          <tr><td>화면 캡처</td><td>현재 탭의 보이는 영역 스크린샷 (사용자가 캡처를 실행한 경우)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>3. 정보의 이용 목적</h2>
+      <p>수집된 정보는 오직 <strong>QA 리포트 생성 및 화면 표시</strong>(버그 재현 절차, 네트워크·콘솔·성능·접근성 점검 결과 정리)에만 사용됩니다.</p>
+
+      <h2>4. 정보의 저장 및 보관</h2>
+      <p>· 모든 데이터는 사용자의 브라우저(확장 프로그램 로컬 저장소) 내에만 저장됩니다.<br/>
+      · 본 확장 프로그램은 <strong>어떠한 외부 서버로도 사용자 데이터를 전송하지 않습니다.</strong><br/>
+      · 단, 링크 유효성 검사 기능을 사용하는 경우, 사용자가 검사 대상으로 지정한 페이지에 포함된 링크 주소로 직접 접속하여 응답 상태만 확인합니다(해당 링크의 서버로 데이터를 별도 전송하지 않음).<br/>
+      · 데이터는 사용자가 삭제하거나 확장 프로그램을 제거하면 사라집니다.</p>
+
+      <h2>5. 정보의 제3자 제공</h2>
+      <p>본 확장 프로그램은 사용자 데이터를 <strong>제3자에게 판매·공유·전송하지 않습니다.</strong> 또한 데이터를 광고, 신용평가, 본 확장 프로그램의 핵심 기능과 무관한 목적으로 사용하지 않습니다.</p>
+
+      <h2>6. 사용자의 권리</h2>
+      <p>사용자는 언제든지 확장 프로그램 내 데이터를 삭제하거나, 확장 프로그램을 제거하여 모든 로컬 데이터를 삭제할 수 있습니다.</p>
+
+      <h2>7. 문의</h2>
+      <p>개인정보 처리에 관한 문의: <a href="mailto:dltkdtn56@naver.com">dltkdtn56@naver.com</a><br/>
+      제공자: 이광민</p>
+
+      <hr/>
+
+      <!-- ===================== English ===================== -->
+      <span class="lang-label">English</span>
+
+      <h2>1. Overview</h2>
+      <p>QA Companion (“the Extension”) is a QA utility that helps non-developers inspect the quality of web services. The Extension operates only on pages where the user explicitly runs an inspection, and all collected data is <strong>stored solely within the user's browser</strong>.</p>
+
+      <h2>2. Information We Collect</h2>
+      <p>When the user runs an inspection, the Extension processes the following information <strong>locally</strong> from the inspected page:</p>
+      <table>
+        <thead><tr><th>Category</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Console logs</td><td>Console messages emitted by the inspected page</td></tr>
+          <tr><td>Network request info</td><td>Request URL, method, status code, timing, cache status (request/response metadata)</td></tr>
+          <tr><td>Performance metrics</td><td>Page load and rendering measurements</td></tr>
+          <tr><td>User action recording</td><td>Click / input / navigation steps for reproduction notes (passwords are masked; long input values are truncated)</td></tr>
+          <tr><td>DOM &amp; element info</td><td>Page structure, element attributes, colors, accessibility results</td></tr>
+          <tr><td>Storage inspection</td><td>Cookies, localStorage, and sessionStorage of the inspected page (read for inspection purposes)</td></tr>
+          <tr><td>Screenshot</td><td>Visible area of the current tab (only when the user triggers a capture)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>3. How We Use Information</h2>
+      <p>Collected information is used <strong>only to generate and display QA reports</strong> (bug reproduction steps; network, console, performance, and accessibility findings).</p>
+
+      <h2>4. Data Storage &amp; Retention</h2>
+      <p>· All data is stored only within the user's browser (the Extension's local storage).<br/>
+      · The Extension <strong>does not transmit any user data to any external server.</strong><br/>
+      · When the link-checking feature is used, the Extension contacts the link URLs found on the user-inspected page solely to verify their response status (no separate data is sent to those servers).<br/>
+      · Data is removed when the user deletes it or uninstalls the Extension.</p>
+
+      <h2>5. Third-Party Sharing</h2>
+      <p>The Extension <strong>does not sell, share, or transfer user data to any third party.</strong> We do not use data for advertising, creditworthiness, or any purpose unrelated to the Extension's core functionality.</p>
+
+      <h2>6. Your Rights</h2>
+      <p>Users may delete data within the Extension at any time, or uninstall the Extension to remove all local data.</p>
+
+      <h2>7. Contact</h2>
+      <p>For privacy inquiries: <a href="mailto:dltkdtn56@naver.com">dltkdtn56@naver.com</a><br/>
+      Provider: Lee Kwang-min</p>
+    </div>
+
+    <footer>
+      © 2026 QA Companion · 이광민 (Lee Kwang-min)
+    </footer>
+  </div>
+</body>
+</html>
