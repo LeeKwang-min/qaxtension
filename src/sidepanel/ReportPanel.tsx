@@ -37,7 +37,7 @@ interface Props {
   jiraBusy: boolean;
   onJiraLoadProjects: () => void;
   onJiraSelectProject: (projectId: string) => void;
-  onJiraCreate: (projectId: string, issueTypeId: string, summary: string) => void;
+  onJiraCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null) => void;
 }
 
 type Tool = 'arrow' | 'box';

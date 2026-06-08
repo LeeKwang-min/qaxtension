@@ -357,9 +357,9 @@ export function App() {
             jiraResult={jiraResult}
             jiraError={jiraError}
             jiraBusy={jiraBusy}
-            onJiraLoadProjects={() => { setJiraError(null); portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage); }}
+            onJiraLoadProjects={() => { setJiraError(null); setJiraResult(null); setJiraIssueTypes([]); portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage); }}
             onJiraSelectProject={(projectId: string) => portRef.current?.postMessage({ type: 'JIRA_LIST_ISSUETYPES', projectId } satisfies PortMessage)}
-            onJiraCreate={(projectId: string, issueTypeId: string, summary: string) => {
+            onJiraCreate={(projectId: string, issueTypeId: string, summary: string, screenshot: string | null) => {
               setJiraBusy(true); setJiraResult(null); setJiraError(null);
               const report: ReportInput = { generatedAt: Date.now(), env: state?.env ?? null, pickedElement: state?.pickedElement ?? null, requests: state?.requests ?? [], logs: state?.logs ?? [], steps: state?.steps ?? [], screenshot };
               portRef.current?.postMessage({ type: 'JIRA_CREATE', payload: { projectId, issueTypeId, summary, screenshot, report } } satisfies PortMessage);

@@ -12,7 +12,7 @@ interface Props {
   busy: boolean;
   onLoadProjects: () => void;
   onSelectProject: (projectId: string) => void;
-  onCreate: (projectId: string, issueTypeId: string, summary: string) => void;
+  onCreate: (projectId: string, issueTypeId: string, summary: string, screenshot: string | null) => void;
 }
 
 export function JiraCreateSection(props: Props) {
@@ -53,7 +53,7 @@ export function JiraCreateSection(props: Props) {
       <button
         type="button"
         disabled={!projectId || !issueTypeId || !summary || busy}
-        onClick={() => props.onCreate(projectId, issueTypeId, summary)}
+        onClick={() => props.onCreate(projectId, issueTypeId, summary, props.screenshot)}
         style={{ fontWeight: 700 }}
       >
         {busy ? '생성 중…' : '티켓 생성'}
