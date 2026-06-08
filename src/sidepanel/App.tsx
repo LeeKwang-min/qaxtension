@@ -10,6 +10,16 @@ import { RecordPanel } from './RecordPanel';
 const PANEL_TABS = ['검사', '네트워크', '콘솔', '검증', '기록', '리포트'] as const;
 type PanelTab = (typeof PANEL_TABS)[number];
 
+/** 탭별 이모지 (라벨 키는 그대로 두고 표시에만 덧붙인다) */
+const TAB_EMOJI: Record<PanelTab, string> = {
+  검사: '🔍',
+  네트워크: '🌐',
+  콘솔: '🐛',
+  검증: '✅',
+  기록: '⏺',
+  리포트: '📄',
+};
+
 export function App() {
   const [state, setState] = useState<TabSessionState | null>(null);
   const [active, setActive] = useState<PanelTab>('검사');
@@ -202,38 +212,39 @@ export function App() {
   }, [active, state?.injectReady, tabId, domTree['']]);
 
   return (
-    <div style={{ font: '13px system-ui', padding: 12 }}>
-      <header style={{ marginBottom: 12 }}>
-        <strong>QA Companion</strong>
-        <div
-          data-testid="status"
-          style={{ marginTop: 4, color: state?.injectReady ? 'green' : '#999' }}
-        >
-          {state?.injectReady ? '주입됨 ✓' : '대기 중… (연결되지 않으면 페이지를 새로고침하세요)'}
+    <div className="app">
+      <header className="app-header">
+        <div className="app-title">
+          <span className="logo">🧪</span> QA Companion
         </div>
-        <div style={{ fontSize: 11, color: '#666', wordBreak: 'break-all' }}>
-          {state?.url ?? ''}
+        <div data-testid="status" className={`status-badge ${state?.injectReady ? 'on' : 'off'}`}>
+          {state?.injectReady ? '🟢 주입됨' : '⚪ 대기 중'}
         </div>
-        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
+        {!state?.injectReady && (
+          <p className="app-hint">연결되지 않으면 페이지를 새로고침하세요.</p>
+        )}
+        {state?.url && <div className="app-url">{state.url}</div>}
+        <div className="header-actions">
           <button onClick={ping}>Ping</button>
           <button onClick={() => reconnectRef.current(true)} title="현재 탭에 다시 연결하고 검사 기능을 재주입합니다">
             재연결
           </button>
           {state?.lastPingNonce && (
-            <span data-testid="pong" style={{ marginLeft: 2 }}>
+            <span data-testid="pong" style={{ marginLeft: 2, fontSize: 11, color: 'var(--fg-subtle)' }}>
               pong: {state.lastPingNonce}
             </span>
           )}
         </div>
       </header>
 
-      <nav style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eee', marginBottom: 8 }}>
+      <nav className="tabs">
         {PANEL_TABS.map((t) => (
           <button
             key={t}
             onClick={() => setActive(t)}
-            style={{ fontWeight: active === t ? 700 : 400 }}
+            className={`tab ${active === t ? 'active' : ''}`}
           >
+            <span className="tab-emoji">{TAB_EMOJI[t]}</span>
             {t}
           </button>
         ))}

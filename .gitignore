@@ -12,3 +12,4 @@ src/manifest.js
 src/manifest.d.ts
 src/**/*.js
 src/**/*.d.ts
+.gstack/

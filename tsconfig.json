@@ -5,7 +5,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["chrome", "node"],
+    "types": ["chrome", "node", "vite/client"],
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
