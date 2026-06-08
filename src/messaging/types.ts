@@ -445,7 +445,23 @@ export type RuntimeMessage =
   | { type: 'RECORD_START' }
   | { type: 'RECORD_STOP' }
   // content → background: 기록된 상호작용 한 건
-  | { type: 'INTERACTION'; event: InteractionEvent };
+  | { type: 'INTERACTION'; event: InteractionEvent }
+  // popup/패널 → background: JIRA 연결 테스트
+  | { type: 'JIRA_TEST'; config: JiraConfig }
+  // background → popup/패널: JIRA 연결 테스트 결과
+  | { type: 'JIRA_TEST_RESULT'; ok: boolean; displayName?: string; error?: string }
+  // popup/패널 → background: JIRA 프로젝트 목록 요청
+  | { type: 'JIRA_LIST_PROJECTS' }
+  // background → popup/패널: JIRA 프로젝트 목록 결과
+  | { type: 'JIRA_PROJECTS_RESULT'; projects: JiraProject[]; error?: string }
+  // popup/패널 → background: JIRA 이슈 타입 목록 요청
+  | { type: 'JIRA_LIST_ISSUETYPES'; projectId: string }
+  // background → popup/패널: JIRA 이슈 타입 목록 결과
+  | { type: 'JIRA_ISSUETYPES_RESULT'; issueTypes: JiraIssueType[]; error?: string }
+  // popup/패널 → background: JIRA 이슈 생성 요청
+  | { type: 'JIRA_CREATE'; payload: JiraCreatePayload }
+  // background → popup/패널: JIRA 이슈 생성 결과
+  | { type: 'JIRA_CREATE_RESULT'; result?: JiraIssueResult; error?: string };
 
 /** tabId별 세션 상태 */
 export interface TabSessionState {
@@ -514,3 +530,52 @@ export type PortMessage =
   // background → 패널: DOM 트리 자식 결과 (단발성, state 에 싣지 않음)
   | { type: 'DOM_CHILDREN_RESULT'; path: number[]; nodes: DomTreeNode[] }
   | { type: 'STATE_UPDATE'; state: TabSessionState };
+
+// ── JIRA 연동 ──────────────────────────────────────────────
+export interface JiraConfig {
+  /** 예: https://acme.atlassian.net (끝 슬래시 없음) */
+  site: string;
+  email: string;
+  token: string;
+  defaultProjectId?: string;
+}
+
+export interface JiraProject {
+  id: string;
+  key: string;
+  name: string;
+}
+
+export interface JiraIssueType {
+  id: string;
+  name: string;
+}
+
+/** Atlassian Document Format 최소 타입 */
+export interface AdfNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: AdfNode[];
+  text?: string;
+}
+export interface AdfDoc {
+  type: 'doc';
+  version: 1;
+  content: AdfNode[];
+}
+
+export interface JiraCreatePayload {
+  projectId: string;
+  issueTypeId: string;
+  summary: string;
+  /** 주석 적용된 스크린샷 dataURL (없으면 null) */
+  screenshot: string | null;
+  /** 리포트 데이터 (설명 ADF 빌드용) */
+  report: ReportInput;
+}
+
+export interface JiraIssueResult {
+  key: string;
+  url: string;
+  screenshotAttached: boolean;
+}
