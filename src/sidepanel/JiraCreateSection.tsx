@@ -29,10 +29,11 @@ export function JiraCreateSection(props: Props) {
     props.onLoadProjects();
     setSummary(suggestTitle(report));
     // 저장된 기본 프로젝트·이슈타입으로 프리필
+    // onSelectProject 는 호출하지 않는다 — projectId 가 ''→default 로 바뀌면
+    // 아래 [projectId] effect 가 onSelectProject 를 호출해 이슈타입 목록을 로드한다.
     void loadSettings().then((cfg) => {
       if (cfg?.defaultProjectId) {
         setProjectId(cfg.defaultProjectId);
-        props.onSelectProject(cfg.defaultProjectId);
         if (cfg.defaultIssueTypeId) {
           setIssueTypeId(cfg.defaultIssueTypeId);
         }

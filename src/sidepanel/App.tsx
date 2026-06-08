@@ -246,7 +246,7 @@ export function App() {
         testing={jiraTesting}
         projects={jiraProjects}
         issueTypes={jiraIssueTypes}
-        onLoadProjects={() => portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage)}
+        onLoadProjects={() => { setJiraIssueTypes([]); portRef.current?.postMessage({ type: 'JIRA_LIST_PROJECTS' } satisfies PortMessage); }}
         onSelectProject={(projectId: string) => portRef.current?.postMessage({ type: 'JIRA_LIST_ISSUETYPES', projectId } satisfies PortMessage)}
       />
     );

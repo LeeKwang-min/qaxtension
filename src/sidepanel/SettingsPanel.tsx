@@ -46,14 +46,19 @@ export function SettingsPanel({ onBack, onTest, testResult, testing, projects, i
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 기본 프로젝트 선택 시 이슈 타입 목록 로드
+  // 기본 프로젝트가 설정되면 이슈 타입 목록 로드 (프리필 시에는 이슈타입 리셋 안 함)
   useEffect(() => {
     if (defaultProjectId) {
       onSelectProject(defaultProjectId);
-      setDefaultIssueTypeId('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultProjectId]);
+
+  // 사용자가 직접 프로젝트를 바꿀 때만 이슈타입 리셋
+  const handleDefaultProjectChange = (id: string) => {
+    setDefaultProjectId(id);
+    setDefaultIssueTypeId('');
+  };
 
   const normalizedSite = site.trim().replace(/\/+$/, '');
   const config: JiraConfig = {
@@ -122,7 +127,7 @@ export function SettingsPanel({ onBack, onTest, testResult, testing, projects, i
           기본 프로젝트
           <select
             value={defaultProjectId}
-            onChange={(e) => setDefaultProjectId(e.target.value)}
+            onChange={(e) => handleDefaultProjectChange(e.target.value)}
             disabled={projects.length === 0}
             style={{ width: '100%', marginTop: 2 }}
           >
