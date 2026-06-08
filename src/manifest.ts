@@ -3,7 +3,7 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'QA Companion',
-  version: '0.1.0',
+  version: '0.2.0',
   description: '비개발자를 위한 웹 서비스 QA 유틸리티',
   minimum_chrome_version: '114',
   icons: {
