@@ -216,7 +216,8 @@ export function NetworkPanel({ requests, perfResources, injectReady, paused, onC
 
       {requests.length === 0 && (
         <p style={{ color: '#999', fontSize: 12, marginTop: 12 }}>
-          아직 포착된 요청이 없습니다. 페이지에서 API 를 호출해 보세요.
+          아직 포착된 요청이 없습니다. 패널을 켜기 전에 끝난 요청은 잡히지 않으니,
+          페이지를 <strong>새로고침</strong>하면 처음부터 잡습니다.
         </p>
       )}
 
